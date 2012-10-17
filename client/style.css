@@ -1,0 +1,125 @@
+body{
+	margin:0;
+	padding:0;
+	background:#000;
+}
+
+.clear{
+	clear:both;
+}
+
+header{
+	display:block;
+	width:100%;
+	height:50px;
+	border-bottom:1px solid #000;
+	background:#222;
+	z-index:10;
+}
+
+section#wrapper{
+	position:absolute;
+	display:block;
+	width:100%;
+	top:50px;
+	bottom:50px;
+}
+
+#loader{
+	position:absolute;
+	display:block;
+	background:rgba(0,0,0,.8);
+	right:0;
+	left:0;
+	bottom:0;
+	top:0;
+	z-index:99;
+}
+
+#progressbar-wrapper{
+	position:relative;
+	display:block;
+	width:50%;
+	min-width:400px;
+	height:120px;
+	margin:360px auto;
+	background:#111;
+}
+
+#progressbar{
+	position:relative;
+	display:block;
+	width:95%;
+	height:80px;
+	top:20px;
+	margin:0 auto;
+	background:#0A0A0A;
+	box-shadow:inset rgba(0,0,0,.6) 0 1px 2px, rgba(255,255,255,.1) 0 1px 1px;
+}
+
+#progressbar-completed{
+	position:relative;
+	display:block;
+	top:1px;
+	height:77px;
+	width:0%;
+	border-top: 1px solid #00A1FF;
+	background:#006FB0;
+	-webkit-transition: width 0.5s ease-in-out;
+	-ms-transition: width 0.5s ease-in-out;
+	-moz-transition: width 0.5s ease-in-out;
+	-o-transition: width 0.5s ease-in-out;
+	transition: width 0.5s ease-in-out;
+}
+
+#progressbar-status{
+	position:relative;
+	display:block;
+	margin-top:-60px;
+	font-weight:bold;
+	text-shadow:rgba(255,255,255,.15) 1px 1px 1px;
+	font-size:40px;
+	width:100%;
+	text-align:center;
+}
+
+#progressbar, #progressbar-wrapper, #progressbar-completed{
+	-webkit-border-radius: 4px;
+	-moz-border-radius: 4px;
+	border-radius: 4px;
+}
+
+#hud{
+	position:absolute;
+	top:1px;
+	bottom:1px;
+	width:200px;
+	float:left;
+	border-top:1px solid #333;
+	border-bottom:1px solid #000;
+	background:#111;
+}
+
+#stage{
+	display:block;
+
+    /*set the div in the top-left corner of the screen*/
+    position:absolute;
+    top:0;
+    left:0;
+	right:4px;
+	bottom: 4px;
+	padding: 0;
+	margin: 0;
+	/*background:url("./images/background.png");*/
+}
+
+footer{
+	position:absolute;
+	display:block;
+	width:100%;
+	height:50px;
+	bottom:0;
+	border-top:1px solid #333;
+	background:#222;
+}

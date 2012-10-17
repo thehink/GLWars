@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>SpaceWar</title>
+<link type="text/css" rel="stylesheet" href="style.css" />
+<script type="text/javascript" src="lib/jquery-1.7.2.min.js"></script>
+<script type="text/javascript" src="lib/three.js"></script>
+<script type="text/javascript" src="lib/Tween.js"></script>
+<script type="text/javascript" src="lib/Sparks.js"></script>
+<script type="text/javascript" src="lib/Stats.js"></script>
+<script type="text/javascript" src="client.build.js"></script>
+<script id="fragment_shader_pass_1" type="x-shader/x-fragment">
+    varying vec2 vUv;
+    uniform sampler2D tDiffuse;
+    void main(void) {
+
+    gl_FragColor = texture2D( tDiffuse, vUv );
+
+    }
+</script>
+
+<script id="vertexShader" type="x-shader/x-vertex">
+    varying vec2 vUv;
+
+
+    void main() {
+
+    vUv = uv;
+
+    //gl_Position = vec4( position, 1.0 );
+    gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+    }
+</script>
+
+<script id="vertexShaderPosVel" type="x-shader/x-vertex">
+    varying vec2 vUv;
+
+    void main() {
+
+    vUv = uv;
+
+    //gl_Position = vec4( position, 1.0 );
+    gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+    }
+</script>
+
+<script id="fragment_vel" type="x-shader/x-fragment">
+    varying vec2 vUv;
+    uniform sampler2D tVel;
+    uniform sampler2D tPos;
+	uniform sampler2D tSPos;
+	uniform sampler2D emitters;
+	uniform float time;
+	uniform vec3 container;
+
+
+	float rand(vec2 co){
+    	return fract(cos(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+	}
+	
+	float rnd(vec2 val, vec2 seed){
+		seed += time;
+		return val.x - val.y + 2.0 * rand(seed) * val.y;
+	}
+	
+    void main(void) {
+	//size of emitters texture:
+	float eTSize = 64.0;
+	//gets the id of emitter the particle belongs to
+	float index = texture2D( tSPos, vUv).r-1.0;
+	
+	//get x and y coords of emitter data position on the emitter texture
+	float x = mod(index*4.0, eTSize);
+	float y = floor(index*4.0/eTSize);
+	
+	//all emitter data will be in those 4 pixels below
+	vec4 block1 = texture2D( emitters, vec2(x/eTSize, y/eTSize));				//pixel 1
+	vec4 block2 = texture2D( emitters, vec2((x+1.0)/eTSize, y/eTSize));			//pixel 2
+	vec4 block3 = texture2D( emitters, vec2((x+2.0)/eTSize, y/eTSize));			//pixel 3
+	vec4 block4 = texture2D( emitters, vec2((x+3.0)/eTSize, y/eTSize));			//pixel 4
+	
+	//block 1 data
+	vec2 emitPosition = block1.xy;
+	vec2 velocity = block1.zw;
+	
+	//block 2 data
+	vec2 emitArea = block2.xy;
+	//vec2 velocity = block1.zw;
+	
+	//block 3 data
+	vec2 initVelocity = block3.xy;
+	vec2 angle = block3.zw;
+	
+	//block 4 data
+	vec2 gravity = block4.xy;
+	vec2 life = block4.zw;
+	
+	vec3 sp = texture2D( tSPos, vUv).rgb;
+	
+	index += 1.0;
+	float allocated = texture2D( tSPos, vUv).g;
+
+    float lived = texture2D( tPos, vUv).b;
+	float lifespan = texture2D( tVel, vUv).b;
+	
+	//if(allocated == 0.0 && lived == 0.0) discard;
+	
+    vec2 p = texture2D( tPos, vUv).rg;		//texture that contains state-preserved position and time lived
+	vec2 v = texture2D( tVel, vUv).rg;		//texture that contains state-preserved velocity and todo: total lifespan
+	
+	vec2 new_p = p + v;
+	
+	if(new_p.y > 5000.0 || new_p.y < -5000.0)v.y *= -(0.10 + rand(gl_PointCoord + time) * 0.9);
+	if(new_p.x > 5000.0 || new_p.x < -5000.0)v.x *= -(0.10 + rand(gl_PointCoord.yx + time) * 0.9);
+	
+	if(index > 0.0 && lived == 0.0){
+		//v = vec2(cos(angle.x)*velocity.x, sin(angle.x)*velocity.x);
+	}
+	
+	if(allocated == 1.0 && mod(lived, lifespan) == 0.0){
+		float new_veloc = rnd(velocity, gl_PointCoord);
+		float new_angle = rnd(angle, gl_PointCoord.yx);
+		v = 0.95*initVelocity+vec2(cos(new_angle)*new_veloc, sin(new_angle)*new_veloc);
+		lifespan = life.x;//floor(rand(gl_PointCoord)*5.) + 5.;
+	}
+
+    gl_FragColor = vec4(v, lifespan, 1.0); //lived
+
+    }
+</script>
+
+<script id="fragment_pos" type="x-shader/x-fragment">
+    varying vec2 vUv;
+    uniform sampler2D tVel;
+    uniform sampler2D tPos;
+	uniform sampler2D tSPos;
+	uniform sampler2D emitters;
+	uniform float time;
+
+	float rand(vec2 co){
+    	return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+	}
+	
+	float rnd(vec2 val, vec2 seed){
+		seed += time;
+		return val.x - val.y + 2.0 * rand(seed) * val.y;
+	}
+
+    void main(void) {
+	//size of emitters texture:
+	float eTSize = 64.0;
+	//gets the id of emitter the particle belongs to
+	float index = texture2D( tSPos, vUv).r-1.0;
+	
+	//get x and y coords of emitter data position on the emitter texture
+	float x = mod(index*4.0, eTSize);
+	float y = floor(index*4.0/eTSize);
+	
+	//all emitter data will be in those 4 pixels below
+	vec4 block1 = texture2D( emitters, vec2(x/eTSize, y/eTSize));				//pixel 1
+	vec4 block2 = texture2D( emitters, vec2((x+1.0)/eTSize, y/eTSize));			//pixel 2
+	vec4 block3 = texture2D( emitters, vec2((x+2.0)/eTSize, y/eTSize));			//pixel 3
+	vec4 block4 = texture2D( emitters, vec2((x+3.0)/eTSize, y/eTSize));			//pixel 4
+	
+	//block 1 data
+	vec2 emitPosition = block1.xy;
+	vec2 velocity = block1.zw;
+	
+	//block 2 data
+	vec2 emitArea = block2.xy;
+	float radius = block2.z;
+	
+	//block 3 data
+	//vec2 initVelocity = block3.xy;
+	//vec2 angle = block3.zw;
+	
+	//block 4 data
+	vec2 gravity = block4.xy;
+	vec2 life = block4.zw;
+	
+	vec3 sp = texture2D( tSPos, vUv).rgb;
+	
+	float lifespan = block4.z;
+	index += 1.0;
+	float allocated = texture2D( tSPos, vUv).g;
+
+    float lived = texture2D( tPos, vUv).b;
+	
+	//if(allocated == 0.0 && lived == 0.0) discard;
+	
+    vec2 p = texture2D( tPos, vUv).rg;		//texture that contains state-preserved position and time lived
+	vec2 v = texture2D( tVel, vUv).rg;		//texture that contains state-preserved velocity and todo: total lifespan
+
+	vec2 new_pos = p + 0.97 * v;
+	
+	if(index > 0.0 && lived == 0.0){
+		lived = texture2D( tSPos, vUv).a;
+		lifespan = block4.z;
+	}
+	
+	if(allocated == 1.0 && mod(lived, lifespan) == 0.0){
+		if(radius == 0.0){
+			new_pos.x = rnd(vec2(emitPosition.x, emitArea.x), gl_PointCoord);
+			new_pos.y = rnd(vec2(emitPosition.y, emitArea.y), gl_PointCoord.yx);
+		}else{
+			new_pos = emitPosition;
+			float angle = rand(gl_PointCoord + time) * 6.2831;
+			radius = rand(gl_PointCoord.yx + time) * radius;
+			new_pos.x += cos(angle) * radius;
+			new_pos.y += sin(angle) * radius;
+		}
+	}
+	else if(allocated == 0.0 && mod(lived, lifespan) == 0.0)
+		index = 0.0;
+
+	if(index > 0.0){
+		lived += 1.0;
+	}
+	else{
+		lived = 0.0;
+		new_pos = vec2(99999.0,99999.0);
+	}
+	/*
+	if(allocated > 0.0 && x == 0.0){
+		new_pos = vec2(0.0, length(block1));
+	}*/
+
+    gl_FragColor = vec4(new_pos, lived, 1.);
+    }
+</script>
+
+<script type="x-shader/x-vertex" id="vertexshaderP">
+    attribute float size;
+	attribute float lifespan;
+    attribute vec3 customColor;
+	attribute vec3 toColor;
+    attribute vec2 aPoints;
+    uniform sampler2D texture;
+	uniform sampler2D tVel;
+	
+    varying vec3 vColor;
+	varying float opacity;
+
+    void main() {
+
+	float lifeSpan = texture2D(tVel, aPoints).z;
+	float lived = mod(texture2D(texture, aPoints).z-1.0, lifeSpan);
+	
+/*
+	if(allocated == 0.0 && lifetime == 0.0)
+		opacity = 0.0;
+	else
+		opacity = lifetime-lived < 10.0 ? 1.0-lived/lifetime : 1.0;
+	*/
+	
+	opacity = lifespan == 0.0 ? 1.0 : (lifespan-lived < 60.0 ? 1.0-(lived-lifespan+60.0)/60.0 : 1.0);
+
+    vColor = customColor - (customColor - toColor)*lived/lifespan;
+
+
+    vec4 pos=vec4(texture2D(texture,aPoints).rg, 0.0 ,1.0)+vec4(position,1.0);
+
+    vec4 mvPosition = modelViewMatrix * pos;
+    gl_PointSize = size * ( 1000.0 / length( mvPosition.xyz ) );
+    gl_Position = projectionMatrix * mvPosition;
+
+    }
+
+</script>
+
+<script type="x-shader/x-fragment" id="fragmentshaderP">
+    uniform vec3 color;
+    uniform sampler2D texture_point;
+
+    varying vec3 vColor;
+	varying float opacity;
+
+    void main() {
+
+    gl_FragColor = vec4( color * vColor, opacity );
+    gl_FragColor = gl_FragColor * texture2D( texture_point, gl_PointCoord );
+
+    }
+
+</script>
+
+<script type="x-shader/x-vertex" id="vertexshader"> 
+
+				attribute float size;
+				uniform float time;
+				uniform float active;
+				uniform vec3 emitPosition;
+				uniform vec3 gravity;
+				
+				attribute vec3 velocity;
+				attribute vec4 ca;
+				attribute float life;
+				attribute float start;
+
+				varying vec4 vColor;
+				varying float opacity;
+				float deltaTime;
+
+				void main() {
+
+					vColor = ca;
+					deltaTime = (time - start <= 0.0) ? life : mod(time - start, life);
+					opacity = (life-deltaTime)/life;
+					
+					vec4 mvPosition = modelViewMatrix * vec4(emitPosition + position + (velocity + gravity) * deltaTime, 1.0 );
+
+					gl_PointSize = size * ( 150.0 / length( mvPosition.xyz ) );
+
+					gl_Position = projectionMatrix * mvPosition;
+
+				}
+
+			</script> 
+
+			<script type="x-shader/x-fragment" id="fragmentshader"> 
+
+				uniform vec3 color;
+				uniform sampler2D texture;
+
+				varying vec4 vColor;
+				varying float opacity;
+
+				uniform float radius;
+
+				uniform vec2 delta;
+
+				varying vec2 texCoord;
+
+
+				void main() {
+
+	
+					vec4 outColor = texture2D( texture, gl_PointCoord ) * 2.0;
+
+					//if ( outColor.a < 0.5 ) discard;
+
+					gl_FragColor = outColor * vec4( color * vColor.xyz, opacity );
+
+					//float depth = gl_FragCoord.z / gl_FragCoord.w;
+					///const vec3 fogColor = vec3( 0.0 );
+
+					//float fogFactor = smoothstep( 200.0, 600.0, depth );
+					//gl_FragColor = mix( gl_FragColor, vec4( fogColor, gl_FragColor.w ), fogFactor );
+
+				}
+
+			</script>
+</head>
+
+<body>
+<!--
+<header></header>-->
+<div id="loader">
+	<div id="progressbar-wrapper">
+        <div id="progressbar">
+            <div id="progressbar-completed"></div>
+            <div id="progressbar-status"><span>0% Done</span></div>
+        </div>
+    </div>
+</div>
+<!--
+<section id="wrapper">
+  <div id="hud"></div>
+  -->
+  <div id="stage"></div>
+  <!--
+</section>
+
+<footer> </footer>
+-->
+</body>
+</html>
