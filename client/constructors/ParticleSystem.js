@@ -2,7 +2,7 @@ client.ParticleSystem = function(scene, opt){
 	this.scene = scene;
 	
 	this.particles = [];
-	this.numParticles = 64;
+	this.numParticles = 256;
 	this.realParticles = this.numParticles*this.numParticles;
 	this.emitters = [];
 	this.numEmitters = 0;

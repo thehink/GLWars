@@ -1,8 +1,9 @@
-client.PEE = function(emitter, opt){
+client.PEE = function(emitter, opt, effect){
 	for(var i in opt){
 		if(this[i])this[i] = opt[i];
 	}
 	this.emitter = emitter || new client.PE(client.stage.ParticleSystem, {}); 	//particle Emitter
+	this.effect = effect;
 };
 
 client.PEE.prototype = {
@@ -39,7 +40,7 @@ client.particleEffect = function(opt){
 	for(var i in opt.emitters){
 		var pe = en.resources.get("emitter", opt.emitters[i].emitter);	//get emitter if defined
 		if(pe)
-			this.numEmitters = this.emitters.push(new client.PEE(pe, opt.emitters[i]));	//if emitter exist add it to emitter pool
+			this.numEmitters = this.emitters.push(new client.PEE(pe, opt.emitters[i], this));	//if emitter exist add it to emitter pool
 	}
 
 	this.frame = 0;

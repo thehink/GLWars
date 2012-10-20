@@ -10,6 +10,6 @@ en.resources.add("emitter", "BasicFire", {
 	velocity_rand: 40,
 	lifespan: 10,
 	lifespan_rand:10,
-	color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
-	to_color: new THREE.Color(0xffffff).setRGB(0,0,0.2),
+	color: new THREE.Color(0xffffff).setHSV(193/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
 });

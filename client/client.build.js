@@ -12689,11 +12689,12 @@ THREE.Background = function(width, height){
 		//mesh.receiveShadow = true;
 		
 		return mesh;
-};client.PEE = function(emitter, opt){
+};client.PEE = function(emitter, opt, effect){
 	for(var i in opt){
 		if(this[i])this[i] = opt[i];
 	}
 	this.emitter = emitter || new client.PE(client.stage.ParticleSystem, {}); 	//particle Emitter
+	this.effect = effect;
 };
 
 client.PEE.prototype = {
@@ -12730,7 +12731,7 @@ client.particleEffect = function(opt){
 	for(var i in opt.emitters){
 		var pe = en.resources.get("emitter", opt.emitters[i].emitter);	//get emitter if defined
 		if(pe)
-			this.numEmitters = this.emitters.push(new client.PEE(pe, opt.emitters[i]));	//if emitter exist add it to emitter pool
+			this.numEmitters = this.emitters.push(new client.PEE(pe, opt.emitters[i], this));	//if emitter exist add it to emitter pool
 	}
 
 	this.frame = 0;
@@ -13078,13 +13079,22 @@ client.PE.prototype = {
 		this.uploadData();
 	},
 	
+	setSize: function(size, rand){
+		this.size = size;
+		this.size_rand = typeof rand == "number" ? rand : this.size_rand;
+		this.uploadData();
+	},
+	
 	setAngle: function(angle, rand){
 		this.angle = angle;
 		this.angle_rand = typeof rand == "number" ? rand : this.angle_rand;
 		this.uploadData();
 	},
 	
-	setLifespan: function(){
+	setLifespan: function(life, range){
+		this.lifespan = life || this.lifespan;
+		this.lifespan_rand = range || this.lifespan_rand;
+		this.uploadData();
 	},
 	
 	setVelocity: function(vel, vel_random){
@@ -13122,7 +13132,7 @@ client.PE.prototype = {
 	this.scene = scene;
 	
 	this.particles = [];
-	this.numParticles = 64;
+	this.numParticles = 256;
 	this.realParticles = this.numParticles*this.numParticles;
 	this.emitters = [];
 	this.numEmitters = 0;
@@ -14040,23 +14050,37 @@ en.resources.add("material", "background.planet.earth", {
 	velocity_rand: 40,
 	lifespan: 10,
 	lifespan_rand:10,
-	color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
-	to_color: new THREE.Color(0xffffff).setRGB(0,0,0.2),
+	color: new THREE.Color(0xffffff).setHSV(193/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
 });en.resources.add("emitter", "Smoke", {
-	numParticles: 1024,
+	numParticles: 2048,
 	texture: 0,
 	radius: 50,
-	size: 200,
-	size_rand: 100,
+	size: 100,
+	size_rand: 50,
 	angle: 0,
-	angle_rand: 0.01,
-	velocity: 150,
+	angle_rand: 0.1,
+	velocity: 130,
 	velocity_rand: 50,
 	lifespan: 10,
 	lifespan_rand: 10,
-	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
-	to_color: new THREE.Color(0xffffff).setHSV(100/360, 50/100, 100/100),
-});en.resources.add("effect", "ShipThrustFire", {
+	color: new THREE.Color(0xffffff).setHSV(40/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
+});en.resources.add("emitter", "Test", {
+	numParticles: 512,
+	texture: 0,
+	radius: 50,
+	size: 60,
+	size_rand: 50,
+	angle: 0,
+	angle_rand: 0.4,
+	velocity: 30,
+	velocity_rand: 5,
+	lifespan: 20,
+	lifespan_rand: 40,
+	color: new THREE.Color(0xffffff).setHSV(193/360, 100/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(10/360, 80/100, 100/100),
+});en.resources.add("effect", "BulletHit", {
 	emitters: [
 		{
 			emitter: "BasicFire",
@@ -14067,14 +14091,34 @@ en.resources.add("material", "background.planet.earth", {
 		{
 			emitter: "Smoke",
 			update: function(frame){
-				if(frame == 1)this.pNum = this.emitter.particles.length-1;
-				if(frame < 30){
-					var num = Math.ceil(this.pNum/15);
-					this.emitter.removeParticles(num);
-					//this.emitter.pause();
-				}
 			},
 		}
+	]
+});en.resources.add("effect", "ShipThrustFire", {
+	emitters: [
+		{
+			emitter: "BasicFire",
+			update: function(frame){
+				if(frame < 50){
+					this.emitter.setVelocity(125 - (1.5*frame), 100 - (60/50)*frame);
+					this.emitter.setAngle(this.emitter.angle, 0.15 - (0.05/50)*frame);
+				}
+			},
+		},
+		{
+			emitter: "Smoke",
+			update: function(frame){
+				if(frame < 50){
+					this.emitter.setVelocity(125 - (1.5*frame), 100 - (60/50)*frame);
+					this.emitter.setAngle(this.emitter.angle, 0.15 - (0.05/50)*frame);
+				}
+			},
+		},
+		{
+			emitter: "Test",
+			update: function(frame){
+			},
+		},
 	]
 });en.bind("resources/load", function(done, total){
 	client.utils.resourceListener(done, total, client.init);

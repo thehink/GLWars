@@ -90,13 +90,22 @@ client.PE.prototype = {
 		this.uploadData();
 	},
 	
+	setSize: function(size, rand){
+		this.size = size;
+		this.size_rand = typeof rand == "number" ? rand : this.size_rand;
+		this.uploadData();
+	},
+	
 	setAngle: function(angle, rand){
 		this.angle = angle;
 		this.angle_rand = typeof rand == "number" ? rand : this.angle_rand;
 		this.uploadData();
 	},
 	
-	setLifespan: function(){
+	setLifespan: function(life, range){
+		this.lifespan = life || this.lifespan;
+		this.lifespan_rand = range || this.lifespan_rand;
+		this.uploadData();
 	},
 	
 	setVelocity: function(vel, vel_random){
