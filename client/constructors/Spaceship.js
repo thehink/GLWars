@@ -8,12 +8,20 @@ client.Spaceship = function(config){
 
 client.Spaceship.prototype = {
 	_init: function(){
+		
+		this.thrustEffect = en.resources.get("effect", "ShipThrustFire");
+		this.thrustEffect.init();
+		
+		
 		this.create_mesh();
 	},
 	
 	_update: function(){
 		  if(this.thrusting)
-		  	this.thrustEffect.unPause();
+		  	if(this.thrustEffect.paused)
+				this.thrustEffect.restart();
+			else
+				this.thrustEffect.unPause();
 		  else
 		  	this.thrustEffect.pause();
 			
@@ -34,8 +42,6 @@ client.Spaceship.prototype = {
 	},
 	
 	create_mesh: function(){
-		this.thrustEffect = new client.PE(client.stage.ParticleSystem, {});
-		
 		var material = en.resources.get("material", this.material),
 			geometry = new THREE.PlaneGeometry(this.size*en.scale*2, this.size*en.scale*2);
 	   

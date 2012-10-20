@@ -10992,10 +10992,10 @@ en.utils.options = function(that, defaults, options){
 	return defaults;
 };en.utils.vars = {	
 	projectile_types: {
-		BULLET: 0x0001,
-		ROCKET: 0x0002,
-		RAILGUN: 0x0004,
-		LASER: 0x0008
+		BULLET: 0x0001,				//bullet
+		ROCKET: 0x0002,				//rocket like projectile
+		RAILGUN: 0x0004,			//instantaneous projectile
+		LASER: 0x0008				
 	},
 	
 	COLLISION_GROUP: {
@@ -11007,8 +11007,12 @@ en.utils.options = function(that, defaults, options){
 		ALL: 0xFFFF		
 	},
 	
+	//################
+	//collision masks
+	//################
+	
 	COLLISION_MASKS: {
-		PLAYER: 0xFFFF & ~0x0008,
+		PLAYER: 0xFFFF & ~0x0008,		
 		ENEMY: 0xFFFF & ~0x0008,
 		OBJECT: 0xFFFF,
 		PROJECTILE: 0xFFFF & ~0x0008,
@@ -11914,6 +11918,37 @@ en.Weapon.prototype = {
 		callback("audio", content);
 	}, false);
     content.sound.src = content.src;
+});en.resources.define("effect",{
+	emitters: [
+		{
+			emitter: "BasicFire",
+			update: function(frame){},
+		},
+		{
+			emitter: "Smoke",
+			update: function(frame){},
+		}
+	]
+}, function(content, callback){
+	callback(content.type, content);
+}, function(content){
+	return new client.particleEffect(content);
+});en.resources.define("emitter",{
+	numParticles: 1024,
+	texture: 0,
+	radius: 50,
+	size: 200,
+	size_rand: 100,
+	angle: 0,
+	angle_rand: 0.2,
+	velocity: 5,
+	velocity_rand: 1,
+	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(100/360, 50/100, 100/100),
+}, function(content, callback){
+	callback(content.type, content);
+}, function(content){
+	return new client.PE(client.stage.ParticleSystem, content);
 });en.resources.define("material",{
 	name: "default",
 	color: 0xffffff,

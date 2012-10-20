@@ -1,9 +1,9 @@
 en.utils.vars = {	
 	projectile_types: {
-		BULLET: 0x0001,
-		ROCKET: 0x0002,
-		RAILGUN: 0x0004,
-		LASER: 0x0008
+		BULLET: 0x0001,				//bullet
+		ROCKET: 0x0002,				//rocket like projectile
+		RAILGUN: 0x0004,			//instantaneous projectile
+		LASER: 0x0008				
 	},
 	
 	COLLISION_GROUP: {
@@ -15,8 +15,12 @@ en.utils.vars = {
 		ALL: 0xFFFF		
 	},
 	
+	//################
+	//collision masks
+	//################
+	
 	COLLISION_MASKS: {
-		PLAYER: 0xFFFF & ~0x0008,
+		PLAYER: 0xFFFF & ~0x0008,		
 		ENEMY: 0xFFFF & ~0x0008,
 		OBJECT: 0xFFFF,
 		PROJECTILE: 0xFFFF & ~0x0008,

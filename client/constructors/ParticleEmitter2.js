@@ -79,7 +79,7 @@ client.PE.prototype = {
 	
 	start: function(){
 		if(this.particles.length+1 < this.numParticles){
-			this.system.allocate(this, this.numParticles);
+			this.system.allocate(this, this.numParticles-this.particles.length+1);
 			this.uploadData();
 		}
 	},

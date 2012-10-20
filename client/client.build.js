@@ -10992,10 +10992,10 @@ en.utils.options = function(that, defaults, options){
 	return defaults;
 };en.utils.vars = {	
 	projectile_types: {
-		BULLET: 0x0001,
-		ROCKET: 0x0002,
-		RAILGUN: 0x0004,
-		LASER: 0x0008
+		BULLET: 0x0001,				//bullet
+		ROCKET: 0x0002,				//rocket like projectile
+		RAILGUN: 0x0004,			//instantaneous projectile
+		LASER: 0x0008				
 	},
 	
 	COLLISION_GROUP: {
@@ -11007,8 +11007,12 @@ en.utils.options = function(that, defaults, options){
 		ALL: 0xFFFF		
 	},
 	
+	//################
+	//collision masks
+	//################
+	
 	COLLISION_MASKS: {
-		PLAYER: 0xFFFF & ~0x0008,
+		PLAYER: 0xFFFF & ~0x0008,		
 		ENEMY: 0xFFFF & ~0x0008,
 		OBJECT: 0xFFFF,
 		PROJECTILE: 0xFFFF & ~0x0008,
@@ -11914,6 +11918,37 @@ en.Weapon.prototype = {
 		callback("audio", content);
 	}, false);
     content.sound.src = content.src;
+});en.resources.define("effect",{
+	emitters: [
+		{
+			emitter: "BasicFire",
+			update: function(frame){},
+		},
+		{
+			emitter: "Smoke",
+			update: function(frame){},
+		}
+	]
+}, function(content, callback){
+	callback(content.type, content);
+}, function(content){
+	return new client.particleEffect(content);
+});en.resources.define("emitter",{
+	numParticles: 1024,
+	texture: 0,
+	radius: 50,
+	size: 200,
+	size_rand: 100,
+	angle: 0,
+	angle_rand: 0.2,
+	velocity: 5,
+	velocity_rand: 1,
+	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(100/360, 50/100, 100/100),
+}, function(content, callback){
+	callback(content.type, content);
+}, function(content){
+	return new client.PE(client.stage.ParticleSystem, content);
 });en.resources.define("material",{
 	name: "default",
 	color: 0xffffff,
@@ -12654,35 +12689,52 @@ THREE.Background = function(width, height){
 		//mesh.receiveShadow = true;
 		
 		return mesh;
-};client.PEE = function(upd){
-	this.emitter = opt.emitter || new client.PE(client.stage.ParticleSystem, {}); 	//particle Emitter
-	this.update = upd.update || function(frame){			//default/example function
+};client.PEE = function(emitter, opt){
+	for(var i in opt){
+		if(this[i])this[i] = opt[i];
+	}
+	this.emitter = emitter || new client.PE(client.stage.ParticleSystem, {}); 	//particle Emitter
+};
+
+client.PEE.prototype = {
+	update: function(frame){
 		if(frame < 10){										//play when framecount is under 10
 			this.emitter.unPause();							//make it emit
 			this.setAngle(this.emitter.angle + 0.1, 0.1);	//make it spin
 		}else
-			this.emitter.pause();							//pause the emiting
-	};
-	
-	for(var asd in upd){
-	}
-};
-
-client.PEE.prototype = {
-	setAngle: function(){
-		//deafult function to set angle. Can be overwritten by effect.
+			this.emitter.pause();	
 	},
 	
-	setVelocity: function(){
+	setAngle: function(angle, range, frame){
+		//deafult function to set angle. Can be overwritten by effect.
+		this.emitter.setAngle(angle, range || this.emitter.angle_rand);
+	},
+	
+	setVelocity: function(vel, range, frame){
 		//deafult function to set velocity. Can be overwritten by effect.
+		this.emitter.setAngle(vel, range || this.emitter.velocity_rand);
+	},
+	
+	setInitVelocity: function(x, y){
+		this.emitter.setInitVelocity(x, y);
+	},
+	
+	translate: function(x, y){
+		this.emitter.translate(x, y);
 	},
 	
 };
 
 client.particleEffect = function(opt){
 	this.emitters = [];
-	this.numEmitters = 0;
+	for(var i in opt.emitters){
+		var pe = en.resources.get("emitter", opt.emitters[i].emitter);	//get emitter if defined
+		if(pe)
+			this.numEmitters = this.emitters.push(new client.PEE(pe, opt.emitters[i]));	//if emitter exist add it to emitter pool
+	}
+
 	this.frame = 0;
+	this.paused = false;
 };
 
 client.particleEffect.prototype = {
@@ -12695,47 +12747,70 @@ client.particleEffect.prototype = {
 	},
 	
 	init: function(){
+		client.stage.ParticleEffects.push(this);
+		/*
 		for(var i = 0; i < this.numEmitters; ++i){
-			this.emitters[this.active[i]].emitter.start();
+			this.emitters[i].emitter.start();
 		}
+		*/
 	},
 	
-	start: function(){										//start/restart emitter;
+	restart: function(){										//start/restart emitter;
 		this.frame = 0;
+		if(this.paused)this.unPause();
 	},
 	
 	pause: function(){
+		if(this.paused)return false;
+		this.paused = true;
 		for(var i = 0; i < this.numEmitters; ++i){
-			this.emitters[this.active[i]].emitter.pause();
+			this.emitters[i].emitter.pause();
 		}
 	},
 	
 	unPause: function(){
+		if(!this.paused)return false;
+		this.paused = false;
 		for(var i = 0; i < this.numEmitters; ++i){
-			this.emitters[this.active[i]].emitter.unPause();
+			this.emitters[i].emitter.unPause();
 		}
 	},
 	
 	update: function(){
 		for(var i = 0; i < this.numEmitters; ++i){
-			this.emitters[this.active[i]].emitter.update(this.frame);
+			this.emitters[i].update(this.frame++);
 		}
-		this.frame++;
 	},
 	
 	translate: function(x, y){
 		for(var i = 0; i < this.numEmitters; ++i){
-			this.emitters[this.active[i]].emitter.translate(x, y);
+			this.emitters[i].translate(x, y);
 		}
 	},
 	
 	setInitVelocity: function(x, y){
 		for(var i = 0; i < this.numEmitters; ++i){
-			this.emitters[this.active[i]].emitter.setInitVelocity(x, y);
+			this.emitters[i].setInitVelocity(x, y);
+		}
+	},
+	
+	setAngle: function(angle, range){
+		for(var i = 0; i < this.numEmitters; ++i){
+			this.emitters[i].setAngle(angle, range);
+		}
+	},
+	
+	setVelocity: function(velocity, range){
+		for(var i = 0; i < this.numEmitters; ++i){
+			this.emitters[i].setVelocity(velocity, range);
 		}
 	},
 	
 	destroy: function(){								//completely remove emitters from memory in gpu to make place for new ones
+		var i = client.stage.ParticleEffects.indexOf(this);
+		if(i > -1)
+			client.stage.ParticleEffects.splice(i,1);
+		
 	},
 };
 client.ParticleEmitter = function(scene, opt){
@@ -12992,7 +13067,7 @@ client.PE.prototype = {
 	
 	start: function(){
 		if(this.particles.length+1 < this.numParticles){
-			this.system.allocate(this, this.numParticles);
+			this.system.allocate(this, this.numParticles-this.particles.length+1);
 			this.uploadData();
 		}
 	},
@@ -13706,12 +13781,20 @@ en.extend(Kinetic.Projectile, en.Projectile);
 
 client.Spaceship.prototype = {
 	_init: function(){
+		
+		this.thrustEffect = en.resources.get("effect", "ShipThrustFire");
+		this.thrustEffect.init();
+		
+		
 		this.create_mesh();
 	},
 	
 	_update: function(){
 		  if(this.thrusting)
-		  	this.thrustEffect.unPause();
+		  	if(this.thrustEffect.paused)
+				this.thrustEffect.restart();
+			else
+				this.thrustEffect.unPause();
 		  else
 		  	this.thrustEffect.pause();
 			
@@ -13732,8 +13815,6 @@ client.Spaceship.prototype = {
 	},
 	
 	create_mesh: function(){
-		this.thrustEffect = new client.PE(client.stage.ParticleSystem, {});
-		
 		var material = en.resources.get("material", this.material),
 			geometry = new THREE.PlaneGeometry(this.size*en.scale*2, this.size*en.scale*2);
 	   
@@ -13947,6 +14028,54 @@ en.resources.add("material", "background.planet.earth", {
 		context.fill();
 		return canvas;
 	},
+});en.resources.add("emitter", "BasicFire", {
+	numParticles: 2048,
+	texture: 0,
+	radius: 40,
+	size: 100,
+	size_rand: 60,
+	angle: Math.PI/4,
+	angle_rand: 0.1,
+	velocity: 50,
+	velocity_rand: 40,
+	lifespan: 10,
+	lifespan_rand:10,
+	color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setRGB(0,0,0.2),
+});en.resources.add("emitter", "Smoke", {
+	numParticles: 1024,
+	texture: 0,
+	radius: 50,
+	size: 200,
+	size_rand: 100,
+	angle: 0,
+	angle_rand: 0.01,
+	velocity: 150,
+	velocity_rand: 50,
+	lifespan: 10,
+	lifespan_rand: 10,
+	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(100/360, 50/100, 100/100),
+});en.resources.add("effect", "ShipThrustFire", {
+	emitters: [
+		{
+			emitter: "BasicFire",
+			update: function(frame){
+
+			},
+		},
+		{
+			emitter: "Smoke",
+			update: function(frame){
+				if(frame == 1)this.pNum = this.emitter.particles.length-1;
+				if(frame < 30){
+					var num = Math.ceil(this.pNum/15);
+					this.emitter.removeParticles(num);
+					//this.emitter.pause();
+				}
+			},
+		}
+	]
 });en.bind("resources/load", function(done, total){
 	client.utils.resourceListener(done, total, client.init);
 });
