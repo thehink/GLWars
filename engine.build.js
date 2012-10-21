@@ -11472,6 +11472,7 @@ en.Projectile.prototype = {
 	},
 	
 	_collide: function(contact){
+		this.call("hit", this.body, contact);
 		this.destroy_queue = true;
 	},
 	

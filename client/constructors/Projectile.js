@@ -47,6 +47,34 @@ client.Projectile.prototype = {
 		
 	},
 	
+	_hit: function(body, contact){
+		var man = new Box2D.Collision.b2WorldManifold();
+		contact.GetWorldManifold(man);
+		
+		var collision_point = man.m_points[0],
+			proj_vel = body.GetLinearVelocity(),
+			proj_pos = body.GetPosition();
+		
+		
+		
+		client.effects.play("BulletHit", 2, {
+			angle: 0,//Math.atan2(proj_pos.y-collision_point.y,proj_pos.x-collision_point.x),
+			angle_rand: Math.PI*2,
+			velocity: 7,
+			velocity_rand: 5,
+			position: {
+				x: collision_point.x*64,
+				y: collision_point.y*64,
+			},
+			initVelocity: {
+				x: proj_vel.x/4,
+				y: proj_vel.y/4,
+			},
+		});
+		
+		//console.log();
+	},
+	
 	_destroy: function(){
 		//remove mesh from display
 		client.stage.layers.projectiles.remove(this.mesh);

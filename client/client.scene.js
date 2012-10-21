@@ -121,6 +121,7 @@ client.stage.removeEffect = function(effect){							//remove particle effect fro
 };
 
 client.stage.render = function(){
+	client.effects.update();
 	this.ParticleSystem.update();
 	for(var i = 0, l = this.ParticleEffects.length; i < l; ++i){
 		this.ParticleEffects[i].update();

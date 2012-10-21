@@ -90,6 +90,14 @@ client.PE.prototype = {
 		this.uploadData();
 	},
 	
+	setOptions: function(options){
+		for(var i in options){
+			if(this[i])
+				this[i] = options[i];
+		}
+		this.uploadData();
+	},
+	
 	setSize: function(size, rand){
 		this.size = size;
 		this.size_rand = typeof rand == "number" ? rand : this.size_rand;

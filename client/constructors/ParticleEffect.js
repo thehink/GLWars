@@ -33,6 +33,10 @@ client.PEE.prototype = {
 		this.emitter.translate(x, y);
 	},
 	
+	setOptions: function(options){
+		this.emitter.setOptions(options);
+	},
+	
 };
 
 client.particleEffect = function(opt){
@@ -44,7 +48,7 @@ client.particleEffect = function(opt){
 	}
 
 	this.frame = 0;
-	this.paused = false;
+	this.paused = true;
 };
 
 client.particleEffect.prototype = {
@@ -63,6 +67,17 @@ client.particleEffect.prototype = {
 			this.emitters[i].emitter.start();
 		}
 		*/
+	},
+	
+	start: function(options){
+		return this;
+	},
+	
+	setOptions: function(options){
+		for(var i = 0; i < this.numEmitters; ++i){
+			this.emitters[i].setOptions(options);
+		}
+		return this;
 	},
 	
 	restart: function(){										//start/restart emitter;

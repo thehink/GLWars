@@ -11472,6 +11472,7 @@ en.Projectile.prototype = {
 	},
 	
 	_collide: function(contact){
+		this.call("hit", this.body, contact);
 		this.destroy_queue = true;
 	},
 	
@@ -12307,7 +12308,55 @@ client.initGame = function(playerID){
 		client.init();
 	}
 };
-client.gui = {};
+/*
+*		Effects - test
+*		
+*
+*/
+
+client.effects = {
+	effects: [],
+	pool: {},
+	playing: [],
+};
+
+client.effects.play = function(effectName, time, options){
+	var effect = this.getEffect(effectName, options);
+	effect._playingTime = time;
+	effect._effectName = effectName;
+	effect.setOptions(options);
+	effect.init();
+	effect.restart();
+	this.playing.push(effect);
+};
+
+client.effects.stop = function(effect){
+	var i = this.playing.indexOf(effect);
+	if(i > -1){
+		effect.pause();
+		this.playing.splice(i, 1);					    //delete from playing
+		if(!this.pool[effect._effectName])this.pool[effect._effectName] = [];
+		this.pool[effect._effectName].push(effect);		//back to pool so it can be reused
+	}
+};
+
+
+client.effects.getEffect = function(effect, options){
+	if(this.pool[effect] && this.pool[effect].length > 0){
+		return this.pool[effect].pop();
+	}else{
+		return en.resources.get("effect", effect);
+	}
+};
+
+client.effects.update = function(){
+	for(var i = 0; i < this.playing.length; ++i){
+		var effect = this.playing[i];
+		if(--effect._playingTime == 0){
+			client.effects.stop(effect);
+		}
+	}
+};client.gui = {};
 
 client.gui.progressbar = {
 	value: 0,
@@ -12495,6 +12544,7 @@ client.stage.removeEffect = function(effect){							//remove particle effect fro
 };
 
 client.stage.render = function(){
+	client.effects.update();
 	this.ParticleSystem.update();
 	for(var i = 0, l = this.ParticleEffects.length; i < l; ++i){
 		this.ParticleEffects[i].update();
@@ -12724,6 +12774,10 @@ client.PEE.prototype = {
 		this.emitter.translate(x, y);
 	},
 	
+	setOptions: function(options){
+		this.emitter.setOptions(options);
+	},
+	
 };
 
 client.particleEffect = function(opt){
@@ -12735,7 +12789,7 @@ client.particleEffect = function(opt){
 	}
 
 	this.frame = 0;
-	this.paused = false;
+	this.paused = true;
 };
 
 client.particleEffect.prototype = {
@@ -12754,6 +12808,17 @@ client.particleEffect.prototype = {
 			this.emitters[i].emitter.start();
 		}
 		*/
+	},
+	
+	start: function(options){
+		return this;
+	},
+	
+	setOptions: function(options){
+		for(var i = 0; i < this.numEmitters; ++i){
+			this.emitters[i].setOptions(options);
+		}
+		return this;
 	},
 	
 	restart: function(){										//start/restart emitter;
@@ -13076,6 +13141,14 @@ client.PE.prototype = {
 	translate: function(x, y){
 		this.position.x = x;
 		this.position.y = y;
+		this.uploadData();
+	},
+	
+	setOptions: function(options){
+		for(var i in options){
+			if(this[i])
+				this[i] = options[i];
+		}
 		this.uploadData();
 	},
 	
@@ -13731,6 +13804,34 @@ client.Projectile.prototype = {
 		
 	},
 	
+	_hit: function(body, contact){
+		var man = new Box2D.Collision.b2WorldManifold();
+		contact.GetWorldManifold(man);
+		
+		var collision_point = man.m_points[0],
+			proj_vel = body.GetLinearVelocity(),
+			proj_pos = body.GetPosition();
+		
+		
+		
+		client.effects.play("BulletHit", 2, {
+			angle: 0,//Math.atan2(proj_pos.y-collision_point.y,proj_pos.x-collision_point.x),
+			angle_rand: Math.PI*2,
+			velocity: 7,
+			velocity_rand: 5,
+			position: {
+				x: collision_point.x*64,
+				y: collision_point.y*64,
+			},
+			initVelocity: {
+				x: proj_vel.x/4,
+				y: proj_vel.y/4,
+			},
+		});
+		
+		//console.log();
+	},
+	
 	_destroy: function(){
 		//remove mesh from display
 		client.stage.layers.projectiles.remove(this.mesh);
@@ -14084,15 +14185,8 @@ en.resources.add("material", "background.planet.earth", {
 	emitters: [
 		{
 			emitter: "BasicFire",
-			update: function(frame){
-
-			},
+			update: function(frame){},
 		},
-		{
-			emitter: "Smoke",
-			update: function(frame){
-			},
-		}
 	]
 });en.resources.add("effect", "ShipThrustFire", {
 	emitters: [
