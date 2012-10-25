@@ -11068,7 +11068,12 @@ en.utils.options = function(that, defaults, options){
 	EXPLODE: 4,
 	FIRE: 5,
 	HIT: 6,
-};en.math = {};
+};
+Number.prototype.mod = function(n) {
+	return ((this % n) + n) % n;
+};
+
+en.math = {};
 
 en.math.vector2 = function(x, y){
 	this.x = x || 0;
@@ -11406,6 +11411,11 @@ en.Object.prototype = {
 	
 		materials: {
 			projectile: "projectiles.bullet",
+		},
+		
+		material_size: {
+			x: 128,
+			y: 128,
 		},
 		
 		categoryBits: en.utils.vars.COLLISION_GROUP.PROJECTILE,
@@ -11879,7 +11889,7 @@ en.Weapon.prototype = {
 			opt.position.y += 2*owner.size * Math.sin(angle+Math.PI/2);
 			
 			opt.rotation = en.math.random2(angle-0.08, angle-0.12);
-			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
+			//owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
 			
 			this.lastfire = en.lastFrameTime;
 		}
@@ -12051,6 +12061,11 @@ en.Weapon.prototype = {
 		projectile: "projectiles.bullet",
 	},
 	
+	material_size: {
+		x: 32,
+		y: 32,
+	},
+	
 	particle_effects: {
 		tail: "default_tail",
 		hit: "default_hit",
@@ -12195,7 +12210,7 @@ en.resources.define("texture",{
 	type: "Projectile",
 	proj_type: en.utils.vars.projectile_types.BULLET,  //bullet || rocket || laser || railgun
 	
-	speed: 25,
+	speed: 40,
 	acceleration: 5,
 	density: 1,                          //projectile is thrusting, depending not only only at start velocity
 	decoy: 1,                           //rate projectile decoys
@@ -12216,6 +12231,11 @@ en.resources.define("texture",{
 
 	materials: {
 		projectile: "projectiles.bullet",
+	},
+	
+	material_size: {
+		x: 128,
+		y: 128,
 	},
 	
 	particle_effects: {
@@ -12308,7 +12328,7 @@ client.initGame = function(playerID){
 		client.init();
 	}
 };
-/*
+client.audio = {};/*
 *		Effects - test
 *		
 *
@@ -12318,16 +12338,23 @@ client.effects = {
 	effects: [],
 	pool: {},
 	playing: [],
+	queue: [],
+	frame: 0,
 };
 
 client.effects.play = function(effectName, time, options){
-	var effect = this.getEffect(effectName, options);
+	var effect = this.getEffect(effectName);
 	effect._playingTime = time;
 	effect._effectName = effectName;
 	effect.setOptions(options);
-	effect.init();
-	effect.restart();
-	this.playing.push(effect);
+	
+	if(!effect.needsAllocation){
+		effect.init();
+		effect.restart();
+		this.playing.push(effect);
+	}else{
+		this.queue.push(effect);
+	}
 };
 
 client.effects.stop = function(effect){
@@ -12341,7 +12368,7 @@ client.effects.stop = function(effect){
 };
 
 
-client.effects.getEffect = function(effect, options){
+client.effects.getEffect = function(effect){
 	if(this.pool[effect] && this.pool[effect].length > 0){
 		return this.pool[effect].pop();
 	}else{
@@ -12349,13 +12376,26 @@ client.effects.getEffect = function(effect, options){
 	}
 };
 
+client.effects.runQueue = function(){
+	
+};
+
 client.effects.update = function(){
+	this.frame = (this.frame + 1) % 60;
+	
 	for(var i = 0; i < this.playing.length; ++i){
 		var effect = this.playing[i];
 		if(--effect._playingTime == 0){
 			client.effects.stop(effect);
 		}
 	}
+	
+		for(var i = 0; i < this.queue.length; ++i){
+			var effect = this.queue.pop();
+			effect.init();
+			effect.restart();
+			this.playing.push(effect);
+		}
 };client.gui = {};
 
 client.gui.progressbar = {
@@ -12527,9 +12567,30 @@ client.stage.init = function(){
 	
 	client.player.set(new (en.getClass("Spaceship"))());
 	stage.insertObject(client.player.get());
+	/*
+	for(var i = 0; i < 20; ++i){
+		stage.insertObject(new (en.getClass("Spaceship"))());
+	}
+	*/
 	en.addStage(stage);
 	client.start();
 	window.addEventListener( 'resize', client.stage.onResize, false );
+	
+	
+	
+	this.ParticleSystem.particlesNeedsUpdate = true;
+};
+
+shit = function(a){
+	for(var i in en.stages.stages[0].objects.items){
+		var obj = en.stages.stages[0].objects.items[i];
+		if(obj.startThrust){
+			if(a)
+				obj.startThrust();
+			else
+				obj.stopThrust();
+		}
+	}
 };
 
 client.stage.addEffect = function(effect){								//add particle effect to pool
@@ -12544,11 +12605,11 @@ client.stage.removeEffect = function(effect){							//remove particle effect fro
 };
 
 client.stage.render = function(){
-	client.effects.update();
 	this.ParticleSystem.update();
 	for(var i = 0, l = this.ParticleEffects.length; i < l; ++i){
 		this.ParticleEffects[i].update();
 	}
+	client.effects.update();
 	//client.stage.starFlow.update();
 	this.renderer.render(this.scene, this.camera);
 	this.stats.update();
@@ -12749,11 +12810,12 @@ THREE.Background = function(width, height){
 
 client.PEE.prototype = {
 	update: function(frame){
-		if(frame < 10){										//play when framecount is under 10
+		/*if(frame < 10){										//play when framecount is under 10
 			this.emitter.unPause();							//make it emit
 			this.setAngle(this.emitter.angle + 0.1, 0.1);	//make it spin
 		}else
 			this.emitter.pause();	
+			*/
 	},
 	
 	setAngle: function(angle, range, frame){
@@ -12782,12 +12844,14 @@ client.PEE.prototype = {
 
 client.particleEffect = function(opt){
 	this.emitters = [];
+	this.needsAllocation = true;
+	
 	for(var i in opt.emitters){
 		var pe = en.resources.get("emitter", opt.emitters[i].emitter);	//get emitter if defined
 		if(pe)
 			this.numEmitters = this.emitters.push(new client.PEE(pe, opt.emitters[i], this));	//if emitter exist add it to emitter pool
 	}
-
+	
 	this.frame = 0;
 	this.paused = true;
 };
@@ -12808,6 +12872,7 @@ client.particleEffect.prototype = {
 			this.emitters[i].emitter.start();
 		}
 		*/
+		
 	},
 	
 	start: function(options){
@@ -13133,7 +13198,7 @@ client.PE.prototype = {
 	
 	start: function(){
 		if(this.particles.length+1 < this.numParticles){
-			this.system.allocate(this, this.numParticles-this.particles.length+1);
+			this.system.allocate(this, this.numParticles-this.particles.length);
 			this.uploadData();
 		}
 	},
@@ -13202,25 +13267,28 @@ client.PE.prototype = {
 		}
 	},
 };client.ParticleSystem = function(scene, opt){
-	this.scene = scene;
+	this.scene = scene;											//which THREE.Scene instance to add ParticleSystem to
 	
 	this.particles = [];
-	this.numParticles = 256;
-	this.realParticles = this.numParticles*this.numParticles;
-	this.emitters = [];
+	this.numParticles = 512;									//power of 2, total number of particles will be this number in square
+	this.realParticles = this.numParticles*this.numParticles;	//total numbers of particles
+	this.emitters = [];											//array of emitters
 	this.numEmitters = 0;
 	
 	this.allocated = [];
 	this.not_allocated = [];
 	
+	
+	//define which texture system shall be using
+	//todo: multi textured system, particle-emitter will choose which texture to use
 	this.texture = new THREE.Texture(en.resources.get("prerender", "particle"));
 	this.texture = en.resources.get("texture", "particle.1");
 	this.texture.needsUpdate = true;
 
 	this.emitterTextureSize = 64; //power of 2 && > 16
 
-	this.startPositions = new Float32Array(this.pxldata_array(this.numParticles*this.numParticles*4, 0)); 
-	this.startVelocities = new Float32Array(this.pxldata_array(this.numParticles*this.numParticles*4, 0));
+	this.startPositions = new Float32Array(this.pxldata_array(this.numParticles*this.numParticles*4, 0)); 				//not used, depricated, todo: remove!
+	this.startVelocities = new Float32Array(this.pxldata_array(this.numParticles*this.numParticles*4, 0));				//not used, depricated, todo: remove!
 	
 	this.textureStartPos = this.createTexture(this.numParticles, this.numParticles, this.startPositions);
 	
@@ -13256,7 +13324,7 @@ client.PE.prototype = {
 client.ParticleSystem.prototype = {
 	
 	allocate_emitter: function(emitter){
-		//256*256 size texture can contain 16384 emitters data, each emitters consist of 16 data points
+		//256*256 size texture can contain 16384 emitters data, each emitters consists of 16 data points split into 4 pixels with 4 datapoints each
 		if(!emitter.allocated || this.emitters.length < (this.emitterTextureSize*this.emitterTextureSize)/16){
 			emitter.id = this.emitters.push(emitter);
 			this.setEmitterData(emitter);
@@ -13267,35 +13335,44 @@ client.ParticleSystem.prototype = {
 	},
 	
 	deAllocateEmitter: function(emitter){
-		var index = this.emitters.indexOf(emitter);
-		if(index > -1){
-			this.emitters.splice(index,1);
-			emitter.allocated = 0.0;
+		//deallocated a emitter so it can be overwitten by another emitter
+		var index = this.emitters.indexOf(emitter);		//gets index of the emitter defined
+		if(index > -1){									//checks if index is above -1 if true emitter is allocated
+			this.emitters.splice(index,1);				//remove emitter from allocated-array
+			emitter.allocated = 0.0;					//set the emitter to not allocated so it does not spawn new particles in shader
 		}
 	},
 	
 	setEmitterData: function(emitter){
-		var e = 64*64*4 - 256 + (emitter.id-1) * 16;
-
-		//block 1
+		
+		//not sure what is the problem but textures are flipped on the y axis when updated a second time.
+		//so the data in the texture also needs to be flipped so when rendering a second time it will be flipped right
+		//
+		//todo: Needs more research on why textures are flipped
+		var i = (emitter.id-1);
+			e = 64*64*4 - (64*4) - (64 * 4 * Math.floor(i/16)) + ((i % 16) * 16);
+		
+		//todo: double the size(64 to 128 byte) of the emitter so more information can be added and produce more advanced effects
+		
+		//chunk/pixel 1
 		this.pEmitters[ e ]      = emitter.position.x;
 		this.pEmitters[ e + 1 ]  = emitter.position.y;
 		this.pEmitters[ e + 2 ]  = emitter.velocity;
 		this.pEmitters[ e + 3 ]  = emitter.velocity_rand;
 		
-		//block 2
+		//chunk/pixel 2
 		this.pEmitters[ e + 4 ]  = emitter.area.x;
 		this.pEmitters[ e + 5 ]  = emitter.area.y;
 		this.pEmitters[ e + 6 ]  = emitter.radius;
 		this.pEmitters[ e + 7 ]  = emitter.texture;
 		
-		//block 3
+		//chunk/pixel 3
 		this.pEmitters[ e + 8 ]  = emitter.initVelocity.x;
 		this.pEmitters[ e + 9 ]  = emitter.initVelocity.y;
 		this.pEmitters[ e + 10 ] = emitter.angle;
 		this.pEmitters[ e + 11 ] = emitter.angle_rand;
 		
-		//block 4
+		//chunk/pixel 4
 		this.pEmitters[ e + 12 ]  = emitter.gravity.x;
 		this.pEmitters[ e + 13 ]  = emitter.gravity.y;
 		this.pEmitters[ e + 14 ]  = emitter.lifespan;
@@ -13309,12 +13386,15 @@ client.ParticleSystem.prototype = {
 			console.log("you must allocate the emitter before you can allocate particles!");
 			return false;
 		}
+		
+		
 		for(var i = 0; i < numParticles; ++i){
 			var pID =  this.allocateParticle(emitter);
 			if(pID)
 				emitter.particles.push(pID);
 		}
 		this.particlesNeedsUpdate = true;
+		
 	},
 	
 	allocate_old: function(emitter){
@@ -13387,7 +13467,8 @@ client.ParticleSystem.prototype = {
 		this.startPositions[ p*4 + 2 ] = emitter.particles.length;
 		this.startPositions[ p*4 + 3 ] = (Math.random()*emitter.lifespan + 0.5) >> 0;
 		
-		var i = this.realParticles-p-1;
+		var i = this.realParticles - this.numParticles * (Math.ceil(p/this.numParticles)) + (p % this.numParticles);
+
 		
 		this.attributes.lifespan.value[ i ] 	= emitter.lifespan;
 		this.attributes.size.value[ i ] 		= en.math.random3(emitter.size, emitter.size_rand);
@@ -13399,7 +13480,6 @@ client.ParticleSystem.prototype = {
 		this.attributes.lifespan.needsUpdate = true;
 		this.attributes.size.needsUpdate = true;
 		//this.attributes.customColor.value[ this.realParticles-p-1 ] = d.color;
-		
 	},
 	
 	setParticleData_old: function(p, d){
@@ -13783,7 +13863,7 @@ client.Projectile.prototype = {
 		//create graphics mesh
 		
 		var material = en.resources.get("material", this.materials.projectile),
-			geometry = new THREE.PlaneGeometry(this.size_x*en.scale*2, this.size_y*en.scale*2);
+			geometry = new THREE.PlaneGeometry(this.material_size.x, this.material_size.y);
 	   
 		//	Multi material
 		if (typeof(material) == 'object' && (material instanceof Array))
@@ -13814,10 +13894,11 @@ client.Projectile.prototype = {
 		
 		
 		
-		client.effects.play("BulletHit", 2, {
+		client.effects.play("BulletHit", 50, {
 			angle: 0,//Math.atan2(proj_pos.y-collision_point.y,proj_pos.x-collision_point.x),
 			angle_rand: Math.PI*2,
 			velocity: 7,
+			radius: 1,
 			velocity_rand: 5,
 			position: {
 				x: collision_point.x*64,
@@ -13895,12 +13976,15 @@ client.Spaceship.prototype = {
 		
 		this.thrustEffect = en.resources.get("effect", "ShipThrustFire");
 		this.thrustEffect.init();
-		
+		this.thrustEffect.restart();
+		this.thrustEffect.unPause();
+		this.thrustEffect.restart();
 		
 		this.create_mesh();
 	},
 	
 	_update: function(){
+	/*
 		  if(this.thrusting)
 		  	if(this.thrustEffect.paused)
 				this.thrustEffect.restart();
@@ -13908,6 +13992,7 @@ client.Spaceship.prototype = {
 				this.thrustEffect.unPause();
 		  else
 		  	this.thrustEffect.pause();
+			*/
 			
 		  var pos = this.body.GetPosition(),
 			  mesh = this.mesh;
@@ -14140,7 +14225,7 @@ en.resources.add("material", "background.planet.earth", {
 		return canvas;
 	},
 });en.resources.add("emitter", "BasicFire", {
-	numParticles: 2048,
+	numParticles: 1024,
 	texture: 0,
 	radius: 40,
 	size: 100,
@@ -14153,8 +14238,22 @@ en.resources.add("material", "background.planet.earth", {
 	lifespan_rand:10,
 	color: new THREE.Color(0xffffff).setHSV(193/360, 80/100, 100/100),
 	to_color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
+});en.resources.add("emitter", "BulletHit", {
+	numParticles: 128,
+	texture: 0,
+	radius: 5,
+	size: 60,
+	size_rand: 40,
+	angle: 0,
+	angle_rand: 0.1,
+	velocity: 7,
+	velocity_rand: 4,
+	lifespan: 20,
+	lifespan_rand: 10,
+	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
 });en.resources.add("emitter", "Smoke", {
-	numParticles: 2048,
+	numParticles: 1024,
 	texture: 0,
 	radius: 50,
 	size: 100,
@@ -14168,7 +14267,7 @@ en.resources.add("material", "background.planet.earth", {
 	color: new THREE.Color(0xffffff).setHSV(40/360, 80/100, 100/100),
 	to_color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
 });en.resources.add("emitter", "Test", {
-	numParticles: 512,
+	numParticles: 128,
 	texture: 0,
 	radius: 50,
 	size: 60,
@@ -14184,7 +14283,7 @@ en.resources.add("material", "background.planet.earth", {
 });en.resources.add("effect", "BulletHit", {
 	emitters: [
 		{
-			emitter: "BasicFire",
+			emitter: "BulletHit",
 			update: function(frame){},
 		},
 	]

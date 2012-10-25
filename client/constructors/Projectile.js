@@ -26,7 +26,7 @@ client.Projectile.prototype = {
 		//create graphics mesh
 		
 		var material = en.resources.get("material", this.materials.projectile),
-			geometry = new THREE.PlaneGeometry(this.size_x*en.scale*2, this.size_y*en.scale*2);
+			geometry = new THREE.PlaneGeometry(this.material_size.x, this.material_size.y);
 	   
 		//	Multi material
 		if (typeof(material) == 'object' && (material instanceof Array))
@@ -57,10 +57,11 @@ client.Projectile.prototype = {
 		
 		
 		
-		client.effects.play("BulletHit", 2, {
+		client.effects.play("BulletHit", 50, {
 			angle: 0,//Math.atan2(proj_pos.y-collision_point.y,proj_pos.x-collision_point.x),
 			angle_rand: Math.PI*2,
 			velocity: 7,
+			radius: 1,
 			velocity_rand: 5,
 			position: {
 				x: collision_point.x*64,

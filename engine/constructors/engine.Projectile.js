@@ -28,6 +28,11 @@ en.Projectile = function(options){
 			projectile: "projectiles.bullet",
 		},
 		
+		material_size: {
+			x: 128,
+			y: 128,
+		},
+		
 		categoryBits: en.utils.vars.COLLISION_GROUP.PROJECTILE,
 		maskBits: en.utils.vars.COLLISION_MASKS.PROJECTILE,
 		

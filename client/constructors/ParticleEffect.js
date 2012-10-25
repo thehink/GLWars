@@ -8,11 +8,12 @@ client.PEE = function(emitter, opt, effect){
 
 client.PEE.prototype = {
 	update: function(frame){
-		if(frame < 10){										//play when framecount is under 10
+		/*if(frame < 10){										//play when framecount is under 10
 			this.emitter.unPause();							//make it emit
 			this.setAngle(this.emitter.angle + 0.1, 0.1);	//make it spin
 		}else
 			this.emitter.pause();	
+			*/
 	},
 	
 	setAngle: function(angle, range, frame){
@@ -41,12 +42,14 @@ client.PEE.prototype = {
 
 client.particleEffect = function(opt){
 	this.emitters = [];
+	this.needsAllocation = true;
+	
 	for(var i in opt.emitters){
 		var pe = en.resources.get("emitter", opt.emitters[i].emitter);	//get emitter if defined
 		if(pe)
 			this.numEmitters = this.emitters.push(new client.PEE(pe, opt.emitters[i], this));	//if emitter exist add it to emitter pool
 	}
-
+	
 	this.frame = 0;
 	this.paused = true;
 };
@@ -67,6 +70,7 @@ client.particleEffect.prototype = {
 			this.emitters[i].emitter.start();
 		}
 		*/
+		
 	},
 	
 	start: function(options){

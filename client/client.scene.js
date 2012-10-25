@@ -104,9 +104,30 @@ client.stage.init = function(){
 	
 	client.player.set(new (en.getClass("Spaceship"))());
 	stage.insertObject(client.player.get());
+	/*
+	for(var i = 0; i < 20; ++i){
+		stage.insertObject(new (en.getClass("Spaceship"))());
+	}
+	*/
 	en.addStage(stage);
 	client.start();
 	window.addEventListener( 'resize', client.stage.onResize, false );
+	
+	
+	
+	this.ParticleSystem.particlesNeedsUpdate = true;
+};
+
+shit = function(a){
+	for(var i in en.stages.stages[0].objects.items){
+		var obj = en.stages.stages[0].objects.items[i];
+		if(obj.startThrust){
+			if(a)
+				obj.startThrust();
+			else
+				obj.stopThrust();
+		}
+	}
 };
 
 client.stage.addEffect = function(effect){								//add particle effect to pool
@@ -121,11 +142,11 @@ client.stage.removeEffect = function(effect){							//remove particle effect fro
 };
 
 client.stage.render = function(){
-	client.effects.update();
 	this.ParticleSystem.update();
 	for(var i = 0, l = this.ParticleEffects.length; i < l; ++i){
 		this.ParticleEffects[i].update();
 	}
+	client.effects.update();
 	//client.stage.starFlow.update();
 	this.renderer.render(this.scene, this.camera);
 	this.stats.update();

@@ -2,7 +2,7 @@ en.resources.add("projectile", "deafult", {
 	type: "Projectile",
 	proj_type: en.utils.vars.projectile_types.BULLET,  //bullet || rocket || laser || railgun
 	
-	speed: 25,
+	speed: 40,
 	acceleration: 5,
 	density: 1,                          //projectile is thrusting, depending not only only at start velocity
 	decoy: 1,                           //rate projectile decoys
@@ -23,6 +23,11 @@ en.resources.add("projectile", "deafult", {
 
 	materials: {
 		projectile: "projectiles.bullet",
+	},
+	
+	material_size: {
+		x: 128,
+		y: 128,
 	},
 	
 	particle_effects: {

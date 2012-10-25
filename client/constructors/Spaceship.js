@@ -11,12 +11,15 @@ client.Spaceship.prototype = {
 		
 		this.thrustEffect = en.resources.get("effect", "ShipThrustFire");
 		this.thrustEffect.init();
-		
+		this.thrustEffect.restart();
+		this.thrustEffect.unPause();
+		this.thrustEffect.restart();
 		
 		this.create_mesh();
 	},
 	
 	_update: function(){
+	/*
 		  if(this.thrusting)
 		  	if(this.thrustEffect.paused)
 				this.thrustEffect.restart();
@@ -24,6 +27,7 @@ client.Spaceship.prototype = {
 				this.thrustEffect.unPause();
 		  else
 		  	this.thrustEffect.pause();
+			*/
 			
 		  var pos = this.body.GetPosition(),
 			  mesh = this.mesh;

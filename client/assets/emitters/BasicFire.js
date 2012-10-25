@@ -1,5 +1,5 @@
 en.resources.add("emitter", "BasicFire", {
-	numParticles: 2048,
+	numParticles: 1024,
 	texture: 0,
 	radius: 40,
 	size: 100,

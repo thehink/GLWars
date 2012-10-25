@@ -1,3 +1,8 @@
+
+Number.prototype.mod = function(n) {
+	return ((this % n) + n) % n;
+};
+
 en.math = {};
 
 en.math.vector2 = function(x, y){

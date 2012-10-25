@@ -68,7 +68,7 @@ en.Weapon.prototype = {
 			opt.position.y += 2*owner.size * Math.sin(angle+Math.PI/2);
 			
 			opt.rotation = en.math.random2(angle-0.08, angle-0.12);
-			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
+			//owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
 			
 			this.lastfire = en.lastFrameTime;
 		}

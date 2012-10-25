@@ -25,6 +25,11 @@ en.resources.define("projectile",{
 		projectile: "projectiles.bullet",
 	},
 	
+	material_size: {
+		x: 32,
+		y: 32,
+	},
+	
 	particle_effects: {
 		tail: "default_tail",
 		hit: "default_hit",

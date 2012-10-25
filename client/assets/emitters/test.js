@@ -1,5 +1,5 @@
 en.resources.add("emitter", "Test", {
-	numParticles: 512,
+	numParticles: 128,
 	texture: 0,
 	radius: 50,
 	size: 60,

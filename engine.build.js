@@ -11068,7 +11068,12 @@ en.utils.options = function(that, defaults, options){
 	EXPLODE: 4,
 	FIRE: 5,
 	HIT: 6,
-};en.math = {};
+};
+Number.prototype.mod = function(n) {
+	return ((this % n) + n) % n;
+};
+
+en.math = {};
 
 en.math.vector2 = function(x, y){
 	this.x = x || 0;
@@ -11406,6 +11411,11 @@ en.Object.prototype = {
 	
 		materials: {
 			projectile: "projectiles.bullet",
+		},
+		
+		material_size: {
+			x: 128,
+			y: 128,
 		},
 		
 		categoryBits: en.utils.vars.COLLISION_GROUP.PROJECTILE,
@@ -11879,7 +11889,7 @@ en.Weapon.prototype = {
 			opt.position.y += 2*owner.size * Math.sin(angle+Math.PI/2);
 			
 			opt.rotation = en.math.random2(angle-0.08, angle-0.12);
-			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
+			//owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
 			
 			this.lastfire = en.lastFrameTime;
 		}
@@ -12051,6 +12061,11 @@ en.Weapon.prototype = {
 		projectile: "projectiles.bullet",
 	},
 	
+	material_size: {
+		x: 32,
+		y: 32,
+	},
+	
 	particle_effects: {
 		tail: "default_tail",
 		hit: "default_hit",
@@ -12195,7 +12210,7 @@ en.resources.define("texture",{
 	type: "Projectile",
 	proj_type: en.utils.vars.projectile_types.BULLET,  //bullet || rocket || laser || railgun
 	
-	speed: 25,
+	speed: 40,
 	acceleration: 5,
 	density: 1,                          //projectile is thrusting, depending not only only at start velocity
 	decoy: 1,                           //rate projectile decoys
@@ -12216,6 +12231,11 @@ en.resources.define("texture",{
 
 	materials: {
 		projectile: "projectiles.bullet",
+	},
+	
+	material_size: {
+		x: 128,
+		y: 128,
 	},
 	
 	particle_effects: {

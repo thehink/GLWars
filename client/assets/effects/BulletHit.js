@@ -1,7 +1,7 @@
 en.resources.add("effect", "BulletHit", {
 	emitters: [
 		{
-			emitter: "BasicFire",
+			emitter: "BulletHit",
 			update: function(frame){},
 		},
 	]

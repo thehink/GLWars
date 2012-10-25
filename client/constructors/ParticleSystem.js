@@ -1,23 +1,26 @@
 client.ParticleSystem = function(scene, opt){
-	this.scene = scene;
+	this.scene = scene;											//which THREE.Scene instance to add ParticleSystem to
 	
 	this.particles = [];
-	this.numParticles = 256;
-	this.realParticles = this.numParticles*this.numParticles;
-	this.emitters = [];
+	this.numParticles = 512;									//power of 2, total number of particles will be this number in square
+	this.realParticles = this.numParticles*this.numParticles;	//total numbers of particles
+	this.emitters = [];											//array of emitters
 	this.numEmitters = 0;
 	
 	this.allocated = [];
 	this.not_allocated = [];
 	
+	
+	//define which texture system shall be using
+	//todo: multi textured system, particle-emitter will choose which texture to use
 	this.texture = new THREE.Texture(en.resources.get("prerender", "particle"));
 	this.texture = en.resources.get("texture", "particle.1");
 	this.texture.needsUpdate = true;
 
 	this.emitterTextureSize = 64; //power of 2 && > 16
 
-	this.startPositions = new Float32Array(this.pxldata_array(this.numParticles*this.numParticles*4, 0)); 
-	this.startVelocities = new Float32Array(this.pxldata_array(this.numParticles*this.numParticles*4, 0));
+	this.startPositions = new Float32Array(this.pxldata_array(this.numParticles*this.numParticles*4, 0)); 				//not used, depricated, todo: remove!
+	this.startVelocities = new Float32Array(this.pxldata_array(this.numParticles*this.numParticles*4, 0));				//not used, depricated, todo: remove!
 	
 	this.textureStartPos = this.createTexture(this.numParticles, this.numParticles, this.startPositions);
 	
@@ -53,7 +56,7 @@ client.ParticleSystem = function(scene, opt){
 client.ParticleSystem.prototype = {
 	
 	allocate_emitter: function(emitter){
-		//256*256 size texture can contain 16384 emitters data, each emitters consist of 16 data points
+		//256*256 size texture can contain 16384 emitters data, each emitters consists of 16 data points split into 4 pixels with 4 datapoints each
 		if(!emitter.allocated || this.emitters.length < (this.emitterTextureSize*this.emitterTextureSize)/16){
 			emitter.id = this.emitters.push(emitter);
 			this.setEmitterData(emitter);
@@ -64,35 +67,44 @@ client.ParticleSystem.prototype = {
 	},
 	
 	deAllocateEmitter: function(emitter){
-		var index = this.emitters.indexOf(emitter);
-		if(index > -1){
-			this.emitters.splice(index,1);
-			emitter.allocated = 0.0;
+		//deallocated a emitter so it can be overwitten by another emitter
+		var index = this.emitters.indexOf(emitter);		//gets index of the emitter defined
+		if(index > -1){									//checks if index is above -1 if true emitter is allocated
+			this.emitters.splice(index,1);				//remove emitter from allocated-array
+			emitter.allocated = 0.0;					//set the emitter to not allocated so it does not spawn new particles in shader
 		}
 	},
 	
 	setEmitterData: function(emitter){
-		var e = 64*64*4 - 256 + (emitter.id-1) * 16;
-
-		//block 1
+		
+		//not sure what is the problem but textures are flipped on the y axis when updated a second time.
+		//so the data in the texture also needs to be flipped so when rendering a second time it will be flipped right
+		//
+		//todo: Needs more research on why textures are flipped
+		var i = (emitter.id-1);
+			e = 64*64*4 - (64*4) - (64 * 4 * Math.floor(i/16)) + ((i % 16) * 16);
+		
+		//todo: double the size(64 to 128 byte) of the emitter so more information can be added and produce more advanced effects
+		
+		//chunk/pixel 1
 		this.pEmitters[ e ]      = emitter.position.x;
 		this.pEmitters[ e + 1 ]  = emitter.position.y;
 		this.pEmitters[ e + 2 ]  = emitter.velocity;
 		this.pEmitters[ e + 3 ]  = emitter.velocity_rand;
 		
-		//block 2
+		//chunk/pixel 2
 		this.pEmitters[ e + 4 ]  = emitter.area.x;
 		this.pEmitters[ e + 5 ]  = emitter.area.y;
 		this.pEmitters[ e + 6 ]  = emitter.radius;
 		this.pEmitters[ e + 7 ]  = emitter.texture;
 		
-		//block 3
+		//chunk/pixel 3
 		this.pEmitters[ e + 8 ]  = emitter.initVelocity.x;
 		this.pEmitters[ e + 9 ]  = emitter.initVelocity.y;
 		this.pEmitters[ e + 10 ] = emitter.angle;
 		this.pEmitters[ e + 11 ] = emitter.angle_rand;
 		
-		//block 4
+		//chunk/pixel 4
 		this.pEmitters[ e + 12 ]  = emitter.gravity.x;
 		this.pEmitters[ e + 13 ]  = emitter.gravity.y;
 		this.pEmitters[ e + 14 ]  = emitter.lifespan;
@@ -106,12 +118,15 @@ client.ParticleSystem.prototype = {
 			console.log("you must allocate the emitter before you can allocate particles!");
 			return false;
 		}
+		
+		
 		for(var i = 0; i < numParticles; ++i){
 			var pID =  this.allocateParticle(emitter);
 			if(pID)
 				emitter.particles.push(pID);
 		}
 		this.particlesNeedsUpdate = true;
+		
 	},
 	
 	allocate_old: function(emitter){
@@ -184,7 +199,8 @@ client.ParticleSystem.prototype = {
 		this.startPositions[ p*4 + 2 ] = emitter.particles.length;
 		this.startPositions[ p*4 + 3 ] = (Math.random()*emitter.lifespan + 0.5) >> 0;
 		
-		var i = this.realParticles-p-1;
+		var i = this.realParticles - this.numParticles * (Math.ceil(p/this.numParticles)) + (p % this.numParticles);
+
 		
 		this.attributes.lifespan.value[ i ] 	= emitter.lifespan;
 		this.attributes.size.value[ i ] 		= en.math.random3(emitter.size, emitter.size_rand);
@@ -196,7 +212,6 @@ client.ParticleSystem.prototype = {
 		this.attributes.lifespan.needsUpdate = true;
 		this.attributes.size.needsUpdate = true;
 		//this.attributes.customColor.value[ this.realParticles-p-1 ] = d.color;
-		
 	},
 	
 	setParticleData_old: function(p, d){

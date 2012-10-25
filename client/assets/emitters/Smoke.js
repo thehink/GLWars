@@ -1,5 +1,5 @@
 en.resources.add("emitter", "Smoke", {
-	numParticles: 2048,
+	numParticles: 1024,
 	texture: 0,
 	radius: 50,
 	size: 100,
