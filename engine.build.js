@@ -11889,7 +11889,7 @@ en.Weapon.prototype = {
 			opt.position.y += 2*owner.size * Math.sin(angle+Math.PI/2);
 			
 			opt.rotation = en.math.random2(angle-0.08, angle-0.12);
-			//owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
+			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
 			
 			this.lastfire = en.lastFrameTime;
 		}
@@ -11920,15 +11920,16 @@ en.Weapon.prototype = {
 		
 	},
 };en.resources.define("audio",{
-	name: "default_sound",
-	src: "audio/default.waw",
-}, function(name, content, callback){
-	content.sound = new Audio();
-    //audio.onload = isAppLoaded; // It doesn't works!
-    content.sound.addEventListener('canplaythrough', function(){
-		callback("audio", content);
-	}, false);
-    content.sound.src = content.src;
+	name: "Engine",
+	src: "./audio/ship_engine.ogg",
+}, function(content, callback){
+	var sound = client.audio.createSound();
+	sound.load(content.src, function(sound){
+		content.sound = sound;
+		callback(content.type, content);
+	});
+}, function(content){
+	return content.sound;
 });en.resources.define("effect",{
 	emitters: [
 		{

@@ -8,6 +8,7 @@ client.Projectile = function(config){
 client.Projectile.prototype = {
 	_init: function(){
 		this.create_mesh();
+		client.soundFX.play("laser_fire_1", true);
 	},
 	
 	_update: function(){
@@ -57,7 +58,7 @@ client.Projectile.prototype = {
 		
 		
 		
-		client.effects.play("BulletHit", 50, {
+		client.effects.play("BulletHit", 10, {
 			angle: 0,//Math.atan2(proj_pos.y-collision_point.y,proj_pos.x-collision_point.x),
 			angle_rand: Math.PI*2,
 			velocity: 7,

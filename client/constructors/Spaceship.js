@@ -11,23 +11,29 @@ client.Spaceship.prototype = {
 		
 		this.thrustEffect = en.resources.get("effect", "ShipThrustFire");
 		this.thrustEffect.init();
-		this.thrustEffect.restart();
-		this.thrustEffect.unPause();
-		this.thrustEffect.restart();
+		
+		this.engineAudio = en.resources.get("audio", "ship_engine").loop(true).play();
+		this.engineAudio.node.playbackRate.value = 0.5;
 		
 		this.create_mesh();
 	},
 	
 	_update: function(){
-	/*
-		  if(this.thrusting)
-		  	if(this.thrustEffect.paused)
-				this.thrustEffect.restart();
-			else
-				this.thrustEffect.unPause();
-		  else
+	
+		  var pr = this.engineAudio.node.playbackRate.value;
+	
+		  if(this.thrusting){
+				if(pr < 1.5) this.engineAudio.node.playbackRate.value+= 0.1;
+				if(this.thrustEffect.paused)
+					this.thrustEffect.restart();
+				else
+					this.thrustEffect.unPause();
+			}
+		  else{
 		  	this.thrustEffect.pause();
-			*/
+			if(pr > 0.5) this.engineAudio.node.playbackRate.value-= 0.1;
+		  }
+			
 			
 		  var pos = this.body.GetPosition(),
 			  mesh = this.mesh;

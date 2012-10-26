@@ -1,11 +1,12 @@
 en.resources.define("audio",{
-	name: "default_sound",
-	src: "audio/default.waw",
-}, function(name, content, callback){
-	content.sound = new Audio();
-    //audio.onload = isAppLoaded; // It doesn't works!
-    content.sound.addEventListener('canplaythrough', function(){
-		callback("audio", content);
-	}, false);
-    content.sound.src = content.src;
+	name: "Engine",
+	src: "./audio/ship_engine.ogg",
+}, function(content, callback){
+	var sound = client.audio.createSound();
+	sound.load(content.src, function(sound){
+		content.sound = sound;
+		callback(content.type, content);
+	});
+}, function(content){
+	return content.sound;
 });

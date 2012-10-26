@@ -11889,7 +11889,7 @@ en.Weapon.prototype = {
 			opt.position.y += 2*owner.size * Math.sin(angle+Math.PI/2);
 			
 			opt.rotation = en.math.random2(angle-0.08, angle-0.12);
-			//owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
+			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
 			
 			this.lastfire = en.lastFrameTime;
 		}
@@ -11920,15 +11920,16 @@ en.Weapon.prototype = {
 		
 	},
 };en.resources.define("audio",{
-	name: "default_sound",
-	src: "audio/default.waw",
-}, function(name, content, callback){
-	content.sound = new Audio();
-    //audio.onload = isAppLoaded; // It doesn't works!
-    content.sound.addEventListener('canplaythrough', function(){
-		callback("audio", content);
-	}, false);
-    content.sound.src = content.src;
+	name: "Engine",
+	src: "./audio/ship_engine.ogg",
+}, function(content, callback){
+	var sound = client.audio.createSound();
+	sound.load(content.src, function(sound){
+		content.sound = sound;
+		callback(content.type, content);
+	});
+}, function(content){
+	return content.sound;
 });en.resources.define("effect",{
 	emitters: [
 		{
@@ -12328,7 +12329,19 @@ client.initGame = function(playerID){
 		client.init();
 	}
 };
-client.audio = {};/*
+client.audio = new WebAudio();
+
+client.soundFX = {
+};
+
+client.soundFX.play = function(name, vary){
+	var sound = en.resources.get("audio", name),
+		playing = sound.play();
+		
+		if(vary){
+			playing.node.playbackRate.value = 0.5+Math.random()*1.;
+		}
+};/*
 *		Effects - test
 *		
 *
@@ -13845,6 +13858,7 @@ client.ParticleSystem.prototype = {
 client.Projectile.prototype = {
 	_init: function(){
 		this.create_mesh();
+		client.soundFX.play("laser_fire_1", true);
 	},
 	
 	_update: function(){
@@ -13894,7 +13908,7 @@ client.Projectile.prototype = {
 		
 		
 		
-		client.effects.play("BulletHit", 50, {
+		client.effects.play("BulletHit", 10, {
 			angle: 0,//Math.atan2(proj_pos.y-collision_point.y,proj_pos.x-collision_point.x),
 			angle_rand: Math.PI*2,
 			velocity: 7,
@@ -13976,23 +13990,29 @@ client.Spaceship.prototype = {
 		
 		this.thrustEffect = en.resources.get("effect", "ShipThrustFire");
 		this.thrustEffect.init();
-		this.thrustEffect.restart();
-		this.thrustEffect.unPause();
-		this.thrustEffect.restart();
+		
+		this.engineAudio = en.resources.get("audio", "ship_engine").loop(true).play();
+		this.engineAudio.node.playbackRate.value = 0.5;
 		
 		this.create_mesh();
 	},
 	
 	_update: function(){
-	/*
-		  if(this.thrusting)
-		  	if(this.thrustEffect.paused)
-				this.thrustEffect.restart();
-			else
-				this.thrustEffect.unPause();
-		  else
+	
+		  var pr = this.engineAudio.node.playbackRate.value;
+	
+		  if(this.thrusting){
+				if(pr < 1.5) this.engineAudio.node.playbackRate.value+= 0.1;
+				if(this.thrustEffect.paused)
+					this.thrustEffect.restart();
+				else
+					this.thrustEffect.unPause();
+			}
+		  else{
 		  	this.thrustEffect.pause();
-			*/
+			if(pr > 0.5) this.engineAudio.node.playbackRate.value-= 0.1;
+		  }
+			
 			
 		  var pos = this.body.GetPosition(),
 			  mesh = this.mesh;
@@ -14313,7 +14333,14 @@ en.resources.add("material", "background.planet.earth", {
 			},
 		},
 	]
-});en.bind("resources/load", function(done, total){
+});en.resources.add("audio", "laser_fire_1", {
+	name: "Laser Fire 1",
+	src: "./audio/laser_fire_1.mp3",
+});en.resources.add("audio", "ship_engine", {
+	name: "Engine",
+	src: "./audio/ship_engine.ogg",
+});
+en.bind("resources/load", function(done, total){
 	client.utils.resourceListener(done, total, client.init);
 });
 $(document).ready(function(e) {
