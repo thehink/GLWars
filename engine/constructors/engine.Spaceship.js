@@ -7,15 +7,17 @@ en.Spaceship = function(options){
 			shield: "shield",
 		},
 		
-		particle_effects: {
-			tail: "ship/default/tail",
-			explosion: "ship/default/explosion",
+		soundFX: {
+			engine: "ShipEngine",
+			boost: "ShipBoost",
 		},
 		
-		weapons: [],
-		activeWeapon: 0,
-		
-		speed_forward: 1000,
+		particle_effects: {
+			thrust: "ThrustEffect",
+			explosion: "DefaultExplosion",
+		},
+
+		speed_forward: 400,
 		speed_backward: 100,
 		mass: 12,
 		thrust: 15,
@@ -25,30 +27,58 @@ en.Spaceship = function(options){
 
 		health: 100,
 		shields: 100,
-		shield_radius: 3.5,
+		shield_radius: 2.1,
 		shield_recharge_time: 10,
 		shield_recharge_frequency: 5,
-		speed: 10,
-		weapon_spots: [
-			{
-				x: -50,
-				y: -50,
+
+		boostForce: 700,
+		boostTime: 100,
+		boostRecharge: 100,
+
+		weapon_spots: {
+			heavy:{
+				name: "heavy",
+				spots: [
+					{
+						angle: 0,
+						x: 0,
+						y: 2,
+					}
+				],
 			},
-			{
-				x: 50,
-				y: 50,
-			},
-		],
+			medium: {
+				name: "medium",
+				spots: [
+					{
+						angle: 0.1,
+						x: 1.2,
+						y: 2.5,
+					},
+					{
+						angle: -0.1,
+						x: -1.2,
+						y: 2.5,
+					}
+				],
+			}
+		},
+		
 		weapon_bonus: {
-			damage: 1.0,
 			firerate: 1.0,
-			clip: 1.0,
-			ammo: 1.0,
 			recoil: 1.0,
 		},
+		
 		categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
 		maskBits: en.utils.vars.COLLISION_MASKS.PLAYER,
 	}, options);
+	
+	this.weapons = [];
+	this.activeWeapon = 0;
+	
+	this.boosting = false;
+	this.boostedTime = 0;
+	this.boostLock = false;
+	
 	en.Entity.apply(this, [options]);
 	this.defaultt();
 };
@@ -90,6 +120,7 @@ en.Spaceship.prototype = {
 		}
 	},
 	
+	
 	turnLeft: function(){
 		if(!this.body.IsAwake())this.stage.setAwake(this, true);
 		this.body.ApplyTorque(this.body.GetInertia()*this.turnSpeed/(1/60.0));
@@ -100,14 +131,23 @@ en.Spaceship.prototype = {
 		this.body.ApplyTorque(-this.body.GetInertia()*this.turnSpeed/(1/60.0));
 	},
 	
-	addWeapon: function(weapon){
-		this.weapons.push(weapon);
+	addWeapon: function(weaponName){
+		
+		var weapon = en.resources.get("weapon", weaponName);
+		
+		if(this.weapon_spots[weapon.class]){
+			if(this.weapons.indexOf(weapon) == -1)
+				this.weapons.push(new en.Weapon(weapon));
+				
+		}else{
+			console.log("Ship can't carry weapon");
+			this.call("WeaponCantEquipped");
+		}
 	},
 	
 	setWeapon: function(w){
 		if(this.weapons[w]){
-			var opt = en.resources.get("weapon", this.weapons[w]);
-			this.activeWeapon = new en.Weapon(opt);
+			this.activeWeapon = new en.Weapon(this.weapons[w]);
 		}
 	},
 	
@@ -127,6 +167,24 @@ en.Spaceship.prototype = {
 		this.thrusting = 0;
 	},
 	
+	boost: function(){
+		if(!this.thrusting)this.thrusting = 1;
+		
+		
+		if(!this.boostLock && this.boostedTime++ < this.boostTime){
+			this.boosting = true;
+		}else if(this.boosting){
+			this.boosting = false;
+			this.boostLock = true;
+		}
+
+	},
+	
+	stopBoost: function(){
+		if(this.boosting)
+			this.boosting = false;
+	},
+	
 	_collide: function(contact){
 		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
 			fixB = contact.GetFixtureB().GetBody().GetUserData();
@@ -135,15 +193,22 @@ en.Spaceship.prototype = {
 	},
 	
 	update: function(){
+		var boostForce = this.boosting ? this.boostForce : 0;
+		
+		if(!this.boosting && this.boostedTime > 0){
+			this.boostedTime -= this.boostTime/this.boostRecharge;
+		}else if(this.boostLock)
+			this.boostLock = false;
+		
 		if (this.thrusting == 1) {
-            var xx1 = Math.cos(this.body.GetAngle())*this.speed_forward,
-				yy1 = Math.sin(this.body.GetAngle())*this.speed_forward;
+            var xx1 = Math.cos(this.body.GetAngle())*(this.speed_forward + boostForce),
+				yy1 = Math.sin(this.body.GetAngle())*(this.speed_forward + boostForce);
             this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
         }
 		
 		if (this.thrusting == 2) {
-            var xx1 = -Math.cos(this.body.GetAngle())*this.speed_backward,
-				yy1 = -Math.sin(this.body.GetAngle())*this.speed_backward;
+            var xx1 = -Math.cos(this.body.GetAngle())*(this.speed_backward + boostForce),
+				yy1 = -Math.sin(this.body.GetAngle())*(this.speed_backward + boostForce);
             this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
         }
 	},

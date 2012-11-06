@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<title>SpaceWar</title>
-<link type="text/css" rel="stylesheet" href="style.css" />
-<script type="text/javascript" src="lib/jquery-1.7.2.min.js"></script>
-<script type="text/javascript" src="lib/three.js"></script>
-<script type="text/javascript" src="lib/webaudio.js"></script>
-<script type="text/javascript" src="lib/Stats.js"></script>
-<script type="text/javascript" src="client.build.js"></script>
-<script id="fragment_shader_pass_1" type="x-shader/x-fragment">
+			<head>
+			<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+			<title>SpaceWar</title>
+			<link type="text/css" rel="stylesheet" href="style.css" />
+			<script type="text/javascript" src="lib/jquery-1.7.2.min.js"></script>
+			<script type="text/javascript" src="lib/three.js"></script>
+			<script type="text/javascript" src="lib/webaudio.js"></script>
+			<script type="text/javascript" src="lib/Stats.js"></script>
+			<script type="text/javascript" src="client.build.js"></script>
+            <script src="http://cdn.binaryjs.com/0/binary.js"></script>
+			<script id="fragment_shader_pass_1" type="x-shader/x-fragment">
     varying vec2 vUv;
     uniform sampler2D tDiffuse;
     void main(void) {
@@ -18,8 +19,7 @@
 
     }
 </script>
-
-<script id="vertexShader" type="x-shader/x-vertex">
+			<script id="vertexShader" type="x-shader/x-vertex">
     varying vec2 vUv;
 
 
@@ -32,8 +32,7 @@
 
     }
 </script>
-
-<script id="vertexShaderPosVel" type="x-shader/x-vertex">
+			<script id="vertexShaderPosVel" type="x-shader/x-vertex">
     varying vec2 vUv;
 
     void main() {
@@ -45,8 +44,7 @@
 
     }
 </script>
-
-<script id="fragment_vel" type="x-shader/x-fragment">
+			<script id="fragment_vel" type="x-shader/x-fragment">
     varying vec2 vUv;
     uniform sampler2D tVel;
     uniform sampler2D tPos;
@@ -123,7 +121,7 @@
 		float new_veloc = rnd(velocity, gl_PointCoord);
 		float new_angle = rnd(angle, gl_PointCoord.yx);
 		v = 0.95*initVelocity+vec2(cos(new_angle)*new_veloc, sin(new_angle)*new_veloc);
-		lifespan = life.x;//floor(rand(gl_PointCoord)*5.) + 5.;
+		lifespan = life.x;//floor(rand(gl_PointCoord)*50.);
 	}
 
     gl_FragColor = vec4(v, lifespan, 1.0); //lived
@@ -131,8 +129,7 @@
 
     }
 </script>
-
-<script id="fragment_pos" type="x-shader/x-fragment">
+			<script id="fragment_pos" type="x-shader/x-fragment">
     varying vec2 vUv;
     uniform sampler2D tVel;
     uniform sampler2D tPos;
@@ -231,8 +228,7 @@
     gl_FragColor = vec4(new_pos, lived, 1.);
     }
 </script>
-
-<script type="x-shader/x-vertex" id="vertexshaderP">
+			<script type="x-shader/x-vertex" id="vertexshaderP">
     attribute float size;
 	attribute float lifespan;
     attribute vec3 customColor;
@@ -256,7 +252,7 @@
 		opacity = lifetime-lived < 10.0 ? 1.0-lived/lifetime : 1.0;
 	*/
 	
-	opacity = lifespan == 0.0 ? 1.0 : (lifespan-lived < 60.0 ? 1.0-(lived-lifespan+60.0)/60.0 : 1.0);
+	opacity = lifespan == 0.0 ? 1.0 : (lifespan-lived < 20.0 ? 1.0-(lived-lifespan+20.0)/20.0 : 1.0);
 
     vColor = customColor - (customColor - toColor)*lived/lifespan;
 
@@ -270,8 +266,7 @@
     }
 
 </script>
-
-<script type="x-shader/x-fragment" id="fragmentshaderP">
+			<script type="x-shader/x-fragment" id="fragmentshaderP">
     uniform vec3 color;
     uniform sampler2D texture_point;
 
@@ -286,8 +281,7 @@
     }
 
 </script>
-
-<script type="x-shader/x-vertex" id="vertexshader"> 
+			<script type="x-shader/x-vertex" id="vertexshader"> 
 
 				attribute float size;
 				uniform float time;
@@ -318,8 +312,7 @@
 
 				}
 
-			</script> 
-
+			</script>
 			<script type="x-shader/x-fragment" id="fragmentshader"> 
 
 				uniform vec3 color;
@@ -353,27 +346,101 @@
 				}
 
 			</script>
-</head>
+			</head>
 
-<body>
+			<body>
 <!--
 <header></header>-->
 <div id="loader">
-	<div id="progressbar-wrapper">
-        <div id="progressbar">
-            <div id="progressbar-completed"></div>
-            <div id="progressbar-status"><span>0% Done</span></div>
-        </div>
-    </div>
-</div>
+              <div id="progressbar-wrapper">
+    <div id="progressbar">
+                  <div id="progressbar-completed"></div>
+                  <div id="progressbar-status"><span>0% Done</span></div>
+                </div>
+  </div>
+            </div>
 <!--
 <section id="wrapper">
   <div id="hud"></div>
   -->
-  <div id="stage"></div>
-  <!--
+<div id="stage"></div>
+<!--
+</section>
+-->
+
+<div id="stats"> </div>
+
+
+<section id="login">
+    <h1 class="title">GLWars</h1>
+	<div class="box-wrapper">
+    	<h2 class="title">Welcome to GLWars!</h2>
+        <div class="separator"></div>
+        <div class="left-column">
+            <form id="login-form">
+                <label class="label" for="username">Username: </label>
+                <input class="text-box" id="username" name="username" type="text" placeholder="Enter your username here..."/>
+                <label class="label" for="password">Password: </label>
+                <input class="text-box" id="password" name="password" type="password" placeholder="Enter your password here..."/>
+                <input class="button submit green" type="submit" value="Play"/>
+            </form>
+        </div>
+        <div class="vertical-separator"></div>
+        <div class="right-column">
+        
+        <div class="image-placeholder">
+        	<img src="images/preview.png"/>
+        </div>
+        <div class="description">
+        	<h3>About</h3>
+            GLWars is a game. Soon...
+        </div>
+        </div>
+		<div class="clear"></div>
+    </div>
+
 </section>
 
+
+<section id="hud">
+
+<div id="battle-log">
+<ul></ul>
+</div>
+
+<div id="weapons">
+    <div class="weapon-box active">
+    	<span>Weapon Name</span>
+        <img src=""/>
+    </div>
+    <div class="weapon-box"> </div>
+    <div class="weapon-box"> </div>
+ </div>
+
+
+  
+  
+  <div id="weapon-bars">
+  	<div id="energy-bar" class="v-bar">
+    		  <div id="energy-bar-completed" class="completed-bar"></div>
+              <div id="energy-bar-status" class="status-bar-text"><span>Energy </span> <span id="energy-status" class="bar-value">100</span>%</div>
+    </div>
+  </div>
+  
+  <div id="vitals-bars">
+    <div id="shield-bar" class="v-bar">
+    		  <div id="shield-bar-completed" class="completed-bar"></div>
+              <div id="shield-bar-status" class="status-bar-text"><span>Shields </span> <span id="shield-status" class="bar-value">100</span>%</div>
+    </div>
+    <div id="health-bar" class="v-bar"> 
+    	<div id="health-bar-completed" class="completed-bar"></div>
+        <div id="health-bar-status" class="status-bar-text"><span>Hull </span> <span id="health-status" class="bar-value">100</span>%</div>
+       </div>
+  </div>
+  
+</section>
+
+<!--
 <footer> </footer>
 -->
 </body>

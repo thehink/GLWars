@@ -1,7 +1,11 @@
-var static = require("ns"),
+var modulesPath = "./../../../nodejs/node_modules/";
+
+var static = require(modulesPath+'node-static'),
   http = require('http'),
-  util = require('util'),
-  socketIO = require('socket.IO');
+  util = require('util');
+ 
+var BinaryServer = require(modulesPath+'binaryjs').BinaryServer,
+	fs = require('fs');
   
   
  var server = {};

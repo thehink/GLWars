@@ -2,11 +2,10 @@ server.network = {
 	server: {
 		clientFiles: {},
 		httpServer: {},
-		websocket: {},
 		denyFF: [
-		"node_modules",
-		"server",
-		"build.bat",
+			"node_modules",
+			"server",
+			"build.bat",
 		],
 	},
 	
@@ -31,10 +30,16 @@ server.network = {
             });
         });
 		
-        server.network.server.httpServer.listen(port);
-        server.network.server.websocket = socketIO.listen(server.network.server.httpServer);
-        server.network.server.websocket.on('connection', server.network.listeners);
+        //server.network.server.httpServer.listen(port);
+        
+		this.server = BinaryServer({port: 1337});
+		this.server.on('connection', server.network.onConnect);
+		
     },
+};
+
+server.network.onConnect = function(client){
+
 };
 
 server.network.listeners = function(client){

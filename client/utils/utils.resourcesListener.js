@@ -6,7 +6,10 @@ client.utils.resourceListener = function(total, loaded, callback){
 	
 	if(loaded/total === 1){
 		client.gui.progressbar.set(100);
-		setTimeout(client.gui.progressbar.hide, 600);
-		client.init();
+		setTimeout(function(){
+			client.gui.progressbar.hide();
+			client.init();
+		}, 500);
+		
 	}
 };

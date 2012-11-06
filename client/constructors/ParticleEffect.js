@@ -1,6 +1,6 @@
 client.PEE = function(emitter, opt, effect){
 	for(var i in opt){
-		if(this[i])this[i] = opt[i];
+		this[i] = opt[i];
 	}
 	this.emitter = emitter || new client.PE(client.stage.ParticleSystem, {}); 	//particle Emitter
 	this.effect = effect;

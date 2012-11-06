@@ -3,6 +3,8 @@ client.player = {
 };
 
 client.player.init = function(player){
+	client.player.set(new (en.getClass("Spaceship"))());
+	client.Stage.insertObject(client.player.get());
 };
 
 client.player.set = function(Player){
@@ -16,19 +18,20 @@ client.player.get = function(){
 
 client.player.update = function(){
 	if(client.keys[en.utils.vars.KEY.ARROW_UP])
-		this.pl.startThrust()
+		this.pl.startThrust();
 	else
-	this.pl.stopThrust();
+		this.pl.stopThrust();
 		
 	if(client.keys[en.utils.vars.KEY.ARROW_DOWN])
 		this.pl.backThrust();
 		
-	if(client.keys[en.utils.vars.KEY.ARROW_LEFT])
-		this.pl.turnLeft();
 		
 	if(client.keys[en.utils.vars.KEY.ARROW_RIGHT])
 		this.pl.turnRight();
-		
+	
+	if(client.keys[en.utils.vars.KEY.ARROW_LEFT])
+		this.pl.turnLeft();
+
 	if(client.keys[en.utils.vars.KEY.X])
 		this.pl.fire();
 		
@@ -37,4 +40,6 @@ client.player.update = function(){
 		
 	if(client.keys[en.utils.vars.KEY.SPACE])
 		this.pl.boost();
+	else
+		this.pl.stopBoost();
 };

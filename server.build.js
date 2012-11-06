@@ -1,7 +1,11 @@
-var static = require("ns"),
+var modulesPath = "./../../../nodejs/node_modules/";
+
+var static = require(modulesPath+'node-static'),
   http = require('http'),
-  util = require('util'),
-  socketIO = require('socket.IO');
+  util = require('util');
+ 
+var BinaryServer = require(modulesPath+'binaryjs').BinaryServer,
+	fs = require('fs');
   
   
  var server = {};
@@ -12,11 +16,10 @@ var static = require("ns"),
 	server: {
 		clientFiles: {},
 		httpServer: {},
-		websocket: {},
 		denyFF: [
-		"node_modules",
-		"server",
-		"build.bat",
+			"node_modules",
+			"server",
+			"build.bat",
 		],
 	},
 	
@@ -41,10 +44,16 @@ var static = require("ns"),
             });
         });
 		
-        server.network.server.httpServer.listen(port);
-        server.network.server.websocket = socketIO.listen(server.network.server.httpServer);
-        server.network.server.websocket.on('connection', server.network.listeners);
+        //server.network.server.httpServer.listen(port);
+        
+		this.server = BinaryServer({port: 1337});
+		this.server.on('connection', server.network.onConnect);
+		
     },
+};
+
+server.network.onConnect = function(client){
+
 };
 
 server.network.listeners = function(client){

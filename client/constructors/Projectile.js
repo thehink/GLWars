@@ -58,21 +58,31 @@ client.Projectile.prototype = {
 		
 		
 		
-		client.effects.play("BulletHit", 10, {
-			angle: 0,//Math.atan2(proj_pos.y-collision_point.y,proj_pos.x-collision_point.x),
+		client.effects.play("BulletHit", 8, {
 			angle_rand: Math.PI*2,
-			velocity: 7,
 			radius: 1,
-			velocity_rand: 5,
 			position: {
-				x: collision_point.x*64,
-				y: collision_point.y*64,
+				x: collision_point.x*en.scale*2,
+				y: collision_point.y*en.scale*2,
 			},
 			initVelocity: {
 				x: proj_vel.x/4,
 				y: proj_vel.y/4,
 			},
 		});
+		
+		var pos = client.player.pl.body.GetPosition();
+		
+		var px = (collision_point.x - pos.x) / 18,
+			py = (collision_point.y - pos.y) / 18;
+		
+		//var asd = new b2Vec2(0, 0).getRotation(client.player.pl.body.GetAngle(), px, py);
+
+		
+		var sound = en.resources.get("audio", "laser_impact_1").play();
+		sound.node.panner.setPosition(px, py, 0);
+		sound.node.panner.setOrientation(0.7,0.7,0, 1000, 1000, 0);
+		
 		
 		//console.log();
 	},
@@ -86,45 +96,3 @@ client.Projectile.prototype = {
 
 
 en.extend(client.Projectile, en.Projectile);
-
-
-/*Kinetic.Projectile = function(config){
-	
-	config = config || {};
-	
-	config.offset = {
-		x: 25,
-		y: 25
-	};
-	
-	config.shieldTimeout = 0;
-	
-	config.drawFunc = function() {
-		var canvas = this.getCanvas(),
-			context = this.getContext();
-		context.beginPath();
-		
-		this.attrs.x = this.velocity.x > 1 ? en.math.rnd(this.position.x) : this.position.x;
-		this.attrs.y = this.velocity.y > 1 ? en.math.rnd(this.position.y) : this.position.y;
-
-		if(this.range < 10){
-			context.globalAlpha = this.range/10;
-		}
-
-		context.drawImage(en.resources.get("image", this.images.projectile).image, 0, 0, 50, 50, 0, 0, 50, 50);
-		
-		this.attrs.rotation = this.rotation + Math.PI/2;
-		
-		context.closePath();
-	};
-	
-	en.Projectile.apply(this, [config]);
-	Kinetic.Shape.apply(this, [config]);
-};
-
-Kinetic.Projectile.prototype = {
-};
-
-Kinetic.Global.extend(Kinetic.Projectile, Kinetic.Shape);
-en.extend(Kinetic.Projectile, en.Projectile);
-*/

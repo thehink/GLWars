@@ -93,3 +93,43 @@ en.math.random3 = function(val, rnd, round) {
    var randVal = val - rnd + Math.random() * 2 * rnd;
    return round ? (0.5+randVal) >> 0 : randVal;
 }
+
+en.math.sin = function(x){
+	//always wrap input angle to -PI..PI
+	if (x < -3.14159265)
+		x += 6.28318531;
+	else
+	if (x >  3.14159265)
+		x -= 6.28318531;
+		
+	if (x < 0)
+		return 1.27323954 * x + .405284735 * x * x;
+	else
+		return 1.27323954 * x - 0.405284735 * x * x;
+};
+
+en.math.cos = function(x){
+	//always wrap input angle to -PI..PI
+	if (x < -3.14159265)
+		x += 6.28318531;
+	else
+	if (x >  3.14159265)
+		x -= 6.28318531;
+		
+		
+	x += 1.57079632;
+	if (x >  3.14159265)
+		x -= 6.28318531;
+	
+	if (x < 0)
+		return 1.27323954 * x + 0.405284735 * x * x;
+	else
+		return 1.27323954 * x - 0.405284735 * x * x;
+};
+
+
+
+//compute sine
+
+
+//compute cosine: sin(x + PI/2) = cos(x)

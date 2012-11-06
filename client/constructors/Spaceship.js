@@ -34,6 +34,15 @@ client.Spaceship.prototype = {
 			if(pr > 0.5) this.engineAudio.node.playbackRate.value-= 0.1;
 		  }
 			
+		  if(pr > 1.5) this.engineAudio.node.playbackRate.value-= 0.1;
+			
+		  if(this.boosting){
+			  if(pr < 3) this.engineAudio.node.playbackRate.value+= 0.3;
+		  	  this.thrustEffect.boosting = true;
+		  }
+		  else{
+		  	 this.thrustEffect.boosting = false;
+		  }
 			
 		  var pos = this.body.GetPosition(),
 			  mesh = this.mesh;
@@ -46,8 +55,8 @@ client.Spaceship.prototype = {
 		  var angl = this.body.GetAngle() + (this.thrusting == 2 ? 0 : Math.PI);
 		  this.thrustEffect.setInitVelocity(vel.x, vel.y);
 		  this.thrustEffect.setAngle(angl);
-		  var posX = Math.cos(angl)*en.scale*4;
-		  var posY = Math.sin(angl)*en.scale*4;
+		  var posX = Math.cos(angl)*en.scale*5;
+		  var posY = Math.sin(angl)*en.scale*5;
 		  this.thrustEffect.translate(pos.x*en.scale*2+posX, pos.y*en.scale*2+posY);
 	},
 	

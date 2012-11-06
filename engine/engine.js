@@ -20,7 +20,7 @@ var en = {
 	multiplier: 1,
 	utils: {},
 	draw: typeof THREE == "object" ? true : false,
-	scale: 32,
+	scale: 40,
 	
 	options: {
 		isServer: typeof module === 'undefined' ? false : true,

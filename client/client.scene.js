@@ -20,7 +20,7 @@ client.stage.init = function(){
 	client.height = $("#stage").height();
 	
 	var camera = this.camera = new THREE.PerspectiveCamera( 45, client.width / client.height, 1, 5000 );
-	camera.position.z = 1500;
+	camera.position.z = 1700;
 
 	var scene = this.scene = new THREE.Scene();
 	
@@ -95,22 +95,7 @@ client.stage.init = function(){
 	stats.domElement.style.zIndex = 100;
 	el.appendChild( stats.domElement );
 	
-	var stage = new en.Stage({
-		name: "Main",
-	});
 	
-	//stage.bind("object/insert", client.stage.addObject);
-	//stage.bind("object/remove", client.stage.removeObject);
-	
-	client.player.set(new (en.getClass("Spaceship"))());
-	stage.insertObject(client.player.get());
-	/*
-	for(var i = 0; i < 20; ++i){
-		stage.insertObject(new (en.getClass("Spaceship"))());
-	}
-	*/
-	en.addStage(stage);
-	client.start();
 	window.addEventListener( 'resize', client.stage.onResize, false );
 	
 	
@@ -191,10 +176,16 @@ client.stage.update = function(){
 	var pl = client.player.get(),
 	    cam = client.stage.camera;
 	
-	
-	cam.position.x = pl.body.GetPosition().x*en.scale;
-	cam.position.y = pl.body.GetPosition().y*en.scale;
 	cam.rotation.z  = pl.body.GetAngle() - Math.PI/2;
+	
+	var dx = Math.cos(cam.rotation.z),
+		dy = Math.sin(cam.rotation.z);
+	
+	
+	
+	cam.position.x = pl.body.GetPosition().x* en.scale - 250 * dy;
+	cam.position.y = pl.body.GetPosition().y* en.scale + 250 * dx;
+
 	//pl.mesh.rotation.z = pl.body.GetAngle();
 	
 	

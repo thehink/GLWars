@@ -262,7 +262,14 @@ WebAudio.NodeChainBuilder.prototype.cloneBufferSource	= function(){
 	clone.buffer		= orig.buffer;
 	clone.playbackRate	= orig.playbackRate;
 	clone.loop		= orig.loop;
-	clone.connect(this._bufferSourceDst);
+	
+	clone.panner = this._context.createPanner();
+	clone.panner.setPosition(0, 0, 0);
+
+	clone.connect(clone.panner);
+	clone.panner.connect(this._bufferSourceDst);
+	
+	//clone.connect(this._bufferSourceDst);
 	return clone;
 }
 

@@ -10891,7 +10891,7 @@ var en = {
 	multiplier: 1,
 	utils: {},
 	draw: typeof THREE == "object" ? true : false,
-	scale: 32,
+	scale: 40,
 	
 	options: {
 		isServer: typeof module === 'undefined' ? false : true,
@@ -11163,6 +11163,46 @@ en.math.random3 = function(val, rnd, round) {
    var randVal = val - rnd + Math.random() * 2 * rnd;
    return round ? (0.5+randVal) >> 0 : randVal;
 }
+
+en.math.sin = function(x){
+	//always wrap input angle to -PI..PI
+	if (x < -3.14159265)
+		x += 6.28318531;
+	else
+	if (x >  3.14159265)
+		x -= 6.28318531;
+		
+	if (x < 0)
+		return 1.27323954 * x + .405284735 * x * x;
+	else
+		return 1.27323954 * x - 0.405284735 * x * x;
+};
+
+en.math.cos = function(x){
+	//always wrap input angle to -PI..PI
+	if (x < -3.14159265)
+		x += 6.28318531;
+	else
+	if (x >  3.14159265)
+		x -= 6.28318531;
+		
+		
+	x += 1.57079632;
+	if (x >  3.14159265)
+		x -= 6.28318531;
+	
+	if (x < 0)
+		return 1.27323954 * x + 0.405284735 * x * x;
+	else
+		return 1.27323954 * x - 0.405284735 * x * x;
+};
+
+
+
+//compute sine
+
+
+//compute cosine: sin(x + PI/2) = cos(x)
 en.resources = {
 	types: {},
 	types_init: {},
@@ -11212,7 +11252,16 @@ en.resources.load = function(){
 en.resources.get = function(type, name){
 	if(en.resources.res[type+name])
 	return this.types_onGet[type] ? this.types_onGet[type](en.resources.res[type+name]) : en.resources.res[type+name];
-};en.Base = function(options){
+};b2Vec2.prototype.getRotation = function(theta, x, y){
+	var cs = Math.cos(theta),
+		sn = Math.sin(theta);
+		
+		return {
+			x:this.x + x * cs - y * sn,
+			y:this.y + x * sn + y * cs,
+		}
+}
+en.Base = function(options){
 	this.id = 0;
 	this.events = {};
 	
@@ -11317,7 +11366,7 @@ en.Object = function(options){
 			x: 0,
 			y: 0
 		},
-		linear_damping: 0.8,
+		linear_damping: 0.5,
 		angular_damping: 5,
 		rotation: Math.PI/2,
 		categoryBits: en.utils.vars.COLLISION_GROUP.OBJECT,
@@ -11346,10 +11395,6 @@ en.Object.prototype = {
 		fix_def.density = this.density;
 		fix_def.friction = this.friction;
 		fix_def.restitution = this.restitution;
-
-		mass_data.center = new b2Vec2(0,0);
-		mass_data.mass = this.mass; 
-		mass_data.I = 0;
 		
 		var body = this.stage.physics_world.CreateBody(body_def);
 		
@@ -11357,7 +11402,6 @@ en.Object.prototype = {
 		body.CreateFixture(fix_def);
 		body.SetLinearDamping(this.linear_damping);
 		body.SetAngularDamping(this.angular_damping);
-		//body.SetMassData(mass_data);
 		
 		this.body = body;
 		return this.body;
@@ -11508,15 +11552,17 @@ en.Projectile.prototype = {
 			shield: "shield",
 		},
 		
-		particle_effects: {
-			tail: "ship/default/tail",
-			explosion: "ship/default/explosion",
+		soundFX: {
+			engine: "ShipEngine",
+			boost: "ShipBoost",
 		},
 		
-		weapons: [],
-		activeWeapon: 0,
-		
-		speed_forward: 1000,
+		particle_effects: {
+			thrust: "ThrustEffect",
+			explosion: "DefaultExplosion",
+		},
+
+		speed_forward: 400,
 		speed_backward: 100,
 		mass: 12,
 		thrust: 15,
@@ -11526,30 +11572,58 @@ en.Projectile.prototype = {
 
 		health: 100,
 		shields: 100,
-		shield_radius: 3.5,
+		shield_radius: 2.1,
 		shield_recharge_time: 10,
 		shield_recharge_frequency: 5,
-		speed: 10,
-		weapon_spots: [
-			{
-				x: -50,
-				y: -50,
+
+		boostForce: 700,
+		boostTime: 100,
+		boostRecharge: 100,
+
+		weapon_spots: {
+			heavy:{
+				name: "heavy",
+				spots: [
+					{
+						angle: 0,
+						x: 0,
+						y: 2,
+					}
+				],
 			},
-			{
-				x: 50,
-				y: 50,
-			},
-		],
+			medium: {
+				name: "medium",
+				spots: [
+					{
+						angle: 0.1,
+						x: 1.2,
+						y: 2.5,
+					},
+					{
+						angle: -0.1,
+						x: -1.2,
+						y: 2.5,
+					}
+				],
+			}
+		},
+		
 		weapon_bonus: {
-			damage: 1.0,
 			firerate: 1.0,
-			clip: 1.0,
-			ammo: 1.0,
 			recoil: 1.0,
 		},
+		
 		categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
 		maskBits: en.utils.vars.COLLISION_MASKS.PLAYER,
 	}, options);
+	
+	this.weapons = [];
+	this.activeWeapon = 0;
+	
+	this.boosting = false;
+	this.boostedTime = 0;
+	this.boostLock = false;
+	
 	en.Entity.apply(this, [options]);
 	this.defaultt();
 };
@@ -11591,6 +11665,7 @@ en.Spaceship.prototype = {
 		}
 	},
 	
+	
 	turnLeft: function(){
 		if(!this.body.IsAwake())this.stage.setAwake(this, true);
 		this.body.ApplyTorque(this.body.GetInertia()*this.turnSpeed/(1/60.0));
@@ -11601,14 +11676,23 @@ en.Spaceship.prototype = {
 		this.body.ApplyTorque(-this.body.GetInertia()*this.turnSpeed/(1/60.0));
 	},
 	
-	addWeapon: function(weapon){
-		this.weapons.push(weapon);
+	addWeapon: function(weaponName){
+		
+		var weapon = en.resources.get("weapon", weaponName);
+		
+		if(this.weapon_spots[weapon.class]){
+			if(this.weapons.indexOf(weapon) == -1)
+				this.weapons.push(new en.Weapon(weapon));
+				
+		}else{
+			console.log("Ship can't carry weapon");
+			this.call("WeaponCantEquipped");
+		}
 	},
 	
 	setWeapon: function(w){
 		if(this.weapons[w]){
-			var opt = en.resources.get("weapon", this.weapons[w]);
-			this.activeWeapon = new en.Weapon(opt);
+			this.activeWeapon = new en.Weapon(this.weapons[w]);
 		}
 	},
 	
@@ -11628,6 +11712,24 @@ en.Spaceship.prototype = {
 		this.thrusting = 0;
 	},
 	
+	boost: function(){
+		if(!this.thrusting)this.thrusting = 1;
+		
+		
+		if(!this.boostLock && this.boostedTime++ < this.boostTime){
+			this.boosting = true;
+		}else if(this.boosting){
+			this.boosting = false;
+			this.boostLock = true;
+		}
+
+	},
+	
+	stopBoost: function(){
+		if(this.boosting)
+			this.boosting = false;
+	},
+	
 	_collide: function(contact){
 		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
 			fixB = contact.GetFixtureB().GetBody().GetUserData();
@@ -11636,15 +11738,22 @@ en.Spaceship.prototype = {
 	},
 	
 	update: function(){
+		var boostForce = this.boosting ? this.boostForce : 0;
+		
+		if(!this.boosting && this.boostedTime > 0){
+			this.boostedTime -= this.boostTime/this.boostRecharge;
+		}else if(this.boostLock)
+			this.boostLock = false;
+		
 		if (this.thrusting == 1) {
-            var xx1 = Math.cos(this.body.GetAngle())*this.speed_forward,
-				yy1 = Math.sin(this.body.GetAngle())*this.speed_forward;
+            var xx1 = Math.cos(this.body.GetAngle())*(this.speed_forward + boostForce),
+				yy1 = Math.sin(this.body.GetAngle())*(this.speed_forward + boostForce);
             this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
         }
 		
 		if (this.thrusting == 2) {
-            var xx1 = -Math.cos(this.body.GetAngle())*this.speed_backward,
-				yy1 = -Math.sin(this.body.GetAngle())*this.speed_backward;
+            var xx1 = -Math.cos(this.body.GetAngle())*(this.speed_backward + boostForce),
+				yy1 = -Math.sin(this.body.GetAngle())*(this.speed_backward + boostForce);
             this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
         }
 	},
@@ -11823,10 +11932,13 @@ en.Stage.prototype = {
 	options = en.utils.defaultOpts({
 		name: "default",
 		type: "Weapon",
+		class: "medium",
 		firerate: 1000,
 		recoil: 3,
 		ammo: -1,
 		clip: -1,
+		energy: 2,
+		energyMax: 100,
 		projectile: "deafult",
 		lastfire: 0,
 	}, options);
@@ -11840,7 +11952,7 @@ en.Weapon.prototype = {
 		
 		switch(opt.proj_type){
 			case en.utils.vars.projectile_types.BULLET:
-				this.fire_double_bullet(owner, position, angle, opt);
+				this.fire_bullet(owner, position, angle, opt);
 			break;
 			case en.utils.vars.projectile_types.ROCKET:
 				this.fire_rocket(owner, position, angle, opt);
@@ -11852,43 +11964,37 @@ en.Weapon.prototype = {
 				this.fire_railgun(owner, position, angle, opt);
 			break;
 		}
-		
-		
 	},
 	
 	fire_bullet: function(owner, position, angle, opt){
-		opt.position = {x:position.x, y:position.y};
-		opt.position.x += owner.size * Math.cos(angle);
-		opt.position.y += owner.size * Math.sin(angle);
+		opt.position = position.getRotation(angle-Math.PI/2, 0, 2.5);
 		opt.velocity = owner.body.GetLinearVelocity();
-		opt.rotation = en.math.random2(angle-0.04, angle+0.04);
+		opt.rotation = angle;
 		opt.owner = owner;
 
 		if((en.lastFrameTime - this.lastfire) > this.firerate){
-
 			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
-			
 			this.lastfire = en.lastFrameTime;
 		}
 	},
 	
 	fire_double_bullet: function(owner, position, angle, opt){
-		opt.position = {x:position.x, y:position.y};
+		opt.position = {};
 		opt.velocity = owner.body.GetLinearVelocity();
 		opt.owner = owner;
 		
 		if((en.lastFrameTime - this.lastfire) > this.firerate){
 
-			opt.position.x += owner.size * Math.cos(angle-Math.PI/2);
-			opt.position.y += owner.size * Math.sin(angle-Math.PI/2);
+			//opt.position.x += owner.size * Math.cos(angle-Math.PI/2);
+			//opt.position.y += owner.size * Math.sin(angle-Math.PI/2);
 			
-			opt.rotation = en.math.random2(angle+0.08, angle+0.12);
+
+			opt.position = position.getRotation(angle-Math.PI/2, 1.2, 2.5);
+			opt.rotation = angle+0.01;
 			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
-			
-			opt.position.x += 2*owner.size * Math.cos(angle+Math.PI/2);
-			opt.position.y += 2*owner.size * Math.sin(angle+Math.PI/2);
-			
-			opt.rotation = en.math.random2(angle-0.08, angle-0.12);
+
+			opt.position = position.getRotation(angle-Math.PI/2, -1.2, 2.5);
+			opt.rotation = angle-0.01;
 			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
 			
 			this.lastfire = en.lastFrameTime;
@@ -12143,6 +12249,7 @@ en.resources.define("texture",{
 });en.resources.define("weapon", {
 		name: "default",
 		type: "Weapon",
+		class: "medium",
 		firerate: 1000,
 		recoil: 3,
 		ammo: -1,
@@ -12150,7 +12257,7 @@ en.resources.define("texture",{
 		projectile: "deafult",
 }, function(content, callback){
 	callback("weapon", content);
-});en.resources.add("ship", "reference", {
+});en.resources.add("ship", "Fighter", {
 	name: "default",
 	type: "Spaceship",
 	images: {
@@ -12158,50 +12265,54 @@ en.resources.define("texture",{
 		shield: "shield",
 	},
 	
-	particle_effects: {
-		tail: "ship/default/tail",
-		explosion: "ship/default/explosion",
+	soundFX: {
+		engine: "ShipEngine",
+		boost: "ShipBoost",
 	},
 	
-	weapons: [],
-	activeWeapon: null,
-	
+	particle_effects: {
+		thrust: "ThrustEffect",
+		explosion: "DefaultExplosion",
+	},
+
 	speed_forward: 1000,
 	speed_backward: 100,
 	mass: 12,
-	thrust: 15,
 	decay: .99,
-	turnSpeed: 5.0,
-	size: 1,
+	turnSpeed: 0.45,
+	size: 2,
 
 	health: 100,
 	shields: 100,
 	shield_radius: 3.5,
 	shield_recharge_time: 10,
 	shield_recharge_frequency: 5,
-	speed: 10,
-	weapon_spots: [
-		{
-			x: -50,
-			y: -50,
+	
+	weapon_spots: {
+		front: {
+			x: 0,
+			y: 2,
 		},
-		{
-			x: 50,
-			y: 50,
+		sideRight: {
+			x: 1.2,
+			y: 2.5,
 		},
-	],
+		sideLeft: {
+			x: -1.2,
+			y: 2.5,
+		},
+	},
+	
 	weapon_bonus: {
-		damage: 1.0,
 		firerate: 1.0,
 		clip: 1.0,
 		ammo: 1.0,
 		recoil: 1.0,
 	},
-	categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
-	maskBits: en.utils.vars.COLLISION_MASKS.PLAYER,
 });en.resources.add("weapon", "default", {
 		name: "default",
 		type: "Weapon",
+		class: "medium",
 		firerate: 150,
 		recoil: 3,
 		ammo: -1,
@@ -12211,7 +12322,7 @@ en.resources.define("texture",{
 	type: "Projectile",
 	proj_type: en.utils.vars.projectile_types.BULLET,  //bullet || rocket || laser || railgun
 	
-	speed: 40,
+	speed: 25,
 	acceleration: 5,
 	density: 1,                          //projectile is thrusting, depending not only only at start velocity
 	decoy: 1,                           //rate projectile decoys
@@ -12275,8 +12386,46 @@ var client = {
 
 client.init = function(){
 	client.eventsInit();
-	client.player.init();
 	client.stage.init();
+	client.network.init();
+	client.setLogin();
+
+	var stage = this.Stage = new en.Stage({
+		name: "Main",
+	});
+
+	/*
+	for(var i = 0; i < 20; ++i){
+		stage.insertObject(new (en.getClass("Spaceship"))());
+	}
+	*/
+
+	en.addStage(stage);
+	
+	
+	
+	/*
+	client.stage.init();
+	client.player.init();
+	client.start();
+	*/
+};
+
+client.setLogin = function(){
+	client.gui.login.show();
+};
+
+client.handleLoginButton = function(){
+	var username = $("#username").val(),
+		password = $("#password").val();
+		
+	//client.network.login(username, password);
+	
+	client.gui.login.hide();
+	client.player.init();
+	client.start();
+	
+	return false;
 };
 
 client.GameLoop = function(){
@@ -12311,6 +12460,8 @@ client.eventsInit = function(){
 	en.setClass("Projectile", client.Projectile);
 	en.setClass("Spaceship", client.Spaceship);
 	
+	$("#login-form").submit(client.handleLoginButton);
+	
 	document.onkeydown = client.keyDownListener;
 	document.onkeyup = client.keyUpListener;
 };
@@ -12325,8 +12476,11 @@ client.initGame = function(playerID){
 	
 	if(loaded/total === 1){
 		client.gui.progressbar.set(100);
-		setTimeout(client.gui.progressbar.hide, 600);
-		client.init();
+		setTimeout(function(){
+			client.gui.progressbar.hide();
+			client.init();
+		}, 500);
+		
 	}
 };
 client.audio = new WebAudio();
@@ -12411,11 +12565,45 @@ client.effects.update = function(){
 		}
 };client.gui = {};
 
+client.gui.progbar = function(id){
+	this.id = '#'+id;
+	this.value = 0;
+};
+
+client.gui.progbar.prototype = {
+	set: function(percent){
+		this.value = percent <= 100 ? percent : 100;
+		$(this.id + ' > .completed-bar').width(this.value+"%");
+		$(this.id + ' > .status-bar-text > .bar-value').text(this.value);
+	},
+	
+	reset: function(){
+		this.set(0);
+	},
+};
+
+client.gui.healthBar = new client.gui.progbar("health-bar");
+client.gui.shieldBar = new client.gui.progbar("shield-bar");
+client.gui.energyBar = new client.gui.progbar("energy-bar");
+
+
+client.gui.login = {
+	show: function(){
+		$("#login").show();
+	},
+	hide: function(){
+		$("#login").hide();
+	},
+	setMessage: function(type, msg){
+		
+	},
+};
+
 client.gui.progressbar = {
 	value: 0,
 	
-	show: function(set){
-		if(set)this.set(set);
+	show: function(percent){
+		if(percent)this.set(percent);
 		$("#loader").show();
 	},
 	
@@ -12435,11 +12623,37 @@ client.gui.progressbar = {
 	
 	
 	
+};client.network = {
+	client: {},
+};
+
+client.network.init = function(){
+
+};
+
+client.network.login = function(username, password){
+	
+	if(this.client._socket.readyState != 1)
+		this.client = new BinaryClient('ws://127.0.0.1:1337');
+
+	
+	this.client.on('open', function(stream, meta){
+		var test = new ArrayBuffer( 10 );
+		this.client.send();
+	});
+	
+	this.client.on('stream', client.network.handleStream);
+};
+
+client.network.handleStream = function(stream, meta){
+	
 };client.player = {
 	pl: {},
 };
 
 client.player.init = function(player){
+	client.player.set(new (en.getClass("Spaceship"))());
+	client.Stage.insertObject(client.player.get());
 };
 
 client.player.set = function(Player){
@@ -12453,19 +12667,20 @@ client.player.get = function(){
 
 client.player.update = function(){
 	if(client.keys[en.utils.vars.KEY.ARROW_UP])
-		this.pl.startThrust()
+		this.pl.startThrust();
 	else
-	this.pl.stopThrust();
+		this.pl.stopThrust();
 		
 	if(client.keys[en.utils.vars.KEY.ARROW_DOWN])
 		this.pl.backThrust();
 		
-	if(client.keys[en.utils.vars.KEY.ARROW_LEFT])
-		this.pl.turnLeft();
 		
 	if(client.keys[en.utils.vars.KEY.ARROW_RIGHT])
 		this.pl.turnRight();
-		
+	
+	if(client.keys[en.utils.vars.KEY.ARROW_LEFT])
+		this.pl.turnLeft();
+
 	if(client.keys[en.utils.vars.KEY.X])
 		this.pl.fire();
 		
@@ -12474,6 +12689,8 @@ client.player.update = function(){
 		
 	if(client.keys[en.utils.vars.KEY.SPACE])
 		this.pl.boost();
+	else
+		this.pl.stopBoost();
 };client.stage = {
 	scene: null,
 	camera: null,
@@ -12496,7 +12713,7 @@ client.stage.init = function(){
 	client.height = $("#stage").height();
 	
 	var camera = this.camera = new THREE.PerspectiveCamera( 45, client.width / client.height, 1, 5000 );
-	camera.position.z = 1500;
+	camera.position.z = 1700;
 
 	var scene = this.scene = new THREE.Scene();
 	
@@ -12571,22 +12788,7 @@ client.stage.init = function(){
 	stats.domElement.style.zIndex = 100;
 	el.appendChild( stats.domElement );
 	
-	var stage = new en.Stage({
-		name: "Main",
-	});
 	
-	//stage.bind("object/insert", client.stage.addObject);
-	//stage.bind("object/remove", client.stage.removeObject);
-	
-	client.player.set(new (en.getClass("Spaceship"))());
-	stage.insertObject(client.player.get());
-	/*
-	for(var i = 0; i < 20; ++i){
-		stage.insertObject(new (en.getClass("Spaceship"))());
-	}
-	*/
-	en.addStage(stage);
-	client.start();
 	window.addEventListener( 'resize', client.stage.onResize, false );
 	
 	
@@ -12667,10 +12869,16 @@ client.stage.update = function(){
 	var pl = client.player.get(),
 	    cam = client.stage.camera;
 	
-	
-	cam.position.x = pl.body.GetPosition().x*en.scale;
-	cam.position.y = pl.body.GetPosition().y*en.scale;
 	cam.rotation.z  = pl.body.GetAngle() - Math.PI/2;
+	
+	var dx = Math.cos(cam.rotation.z),
+		dy = Math.sin(cam.rotation.z);
+	
+	
+	
+	cam.position.x = pl.body.GetPosition().x* en.scale - 250 * dy;
+	cam.position.y = pl.body.GetPosition().y* en.scale + 250 * dx;
+
 	//pl.mesh.rotation.z = pl.body.GetAngle();
 	
 	
@@ -12815,7 +13023,7 @@ THREE.Background = function(width, height){
 		return mesh;
 };client.PEE = function(emitter, opt, effect){
 	for(var i in opt){
-		if(this[i])this[i] = opt[i];
+		this[i] = opt[i];
 	}
 	this.emitter = emitter || new client.PE(client.stage.ParticleSystem, {}); 	//particle Emitter
 	this.effect = effect;
@@ -13908,21 +14116,31 @@ client.Projectile.prototype = {
 		
 		
 		
-		client.effects.play("BulletHit", 10, {
-			angle: 0,//Math.atan2(proj_pos.y-collision_point.y,proj_pos.x-collision_point.x),
+		client.effects.play("BulletHit", 8, {
 			angle_rand: Math.PI*2,
-			velocity: 7,
 			radius: 1,
-			velocity_rand: 5,
 			position: {
-				x: collision_point.x*64,
-				y: collision_point.y*64,
+				x: collision_point.x*en.scale*2,
+				y: collision_point.y*en.scale*2,
 			},
 			initVelocity: {
 				x: proj_vel.x/4,
 				y: proj_vel.y/4,
 			},
 		});
+		
+		var pos = client.player.pl.body.GetPosition();
+		
+		var px = (collision_point.x - pos.x) / 18,
+			py = (collision_point.y - pos.y) / 18;
+		
+		//var asd = new b2Vec2(0, 0).getRotation(client.player.pl.body.GetAngle(), px, py);
+
+		
+		var sound = en.resources.get("audio", "laser_impact_1").play();
+		sound.node.panner.setPosition(px, py, 0);
+		sound.node.panner.setOrientation(0.7,0.7,0, 1000, 1000, 0);
+		
 		
 		//console.log();
 	},
@@ -13935,49 +14153,7 @@ client.Projectile.prototype = {
 };
 
 
-en.extend(client.Projectile, en.Projectile);
-
-
-/*Kinetic.Projectile = function(config){
-	
-	config = config || {};
-	
-	config.offset = {
-		x: 25,
-		y: 25
-	};
-	
-	config.shieldTimeout = 0;
-	
-	config.drawFunc = function() {
-		var canvas = this.getCanvas(),
-			context = this.getContext();
-		context.beginPath();
-		
-		this.attrs.x = this.velocity.x > 1 ? en.math.rnd(this.position.x) : this.position.x;
-		this.attrs.y = this.velocity.y > 1 ? en.math.rnd(this.position.y) : this.position.y;
-
-		if(this.range < 10){
-			context.globalAlpha = this.range/10;
-		}
-
-		context.drawImage(en.resources.get("image", this.images.projectile).image, 0, 0, 50, 50, 0, 0, 50, 50);
-		
-		this.attrs.rotation = this.rotation + Math.PI/2;
-		
-		context.closePath();
-	};
-	
-	en.Projectile.apply(this, [config]);
-	Kinetic.Shape.apply(this, [config]);
-};
-
-Kinetic.Projectile.prototype = {
-};
-
-Kinetic.Global.extend(Kinetic.Projectile, Kinetic.Shape);
-en.extend(Kinetic.Projectile, en.Projectile);
-*/client.Spaceship = function(config){
+en.extend(client.Projectile, en.Projectile);client.Spaceship = function(config){
 	config = config || {};
 	config.shieldTimeout = 0;
 	config.noUpdate = false;
@@ -14013,6 +14189,15 @@ client.Spaceship.prototype = {
 			if(pr > 0.5) this.engineAudio.node.playbackRate.value-= 0.1;
 		  }
 			
+		  if(pr > 1.5) this.engineAudio.node.playbackRate.value-= 0.1;
+			
+		  if(this.boosting){
+			  if(pr < 3) this.engineAudio.node.playbackRate.value+= 0.3;
+		  	  this.thrustEffect.boosting = true;
+		  }
+		  else{
+		  	 this.thrustEffect.boosting = false;
+		  }
 			
 		  var pos = this.body.GetPosition(),
 			  mesh = this.mesh;
@@ -14025,8 +14210,8 @@ client.Spaceship.prototype = {
 		  var angl = this.body.GetAngle() + (this.thrusting == 2 ? 0 : Math.PI);
 		  this.thrustEffect.setInitVelocity(vel.x, vel.y);
 		  this.thrustEffect.setAngle(angl);
-		  var posX = Math.cos(angl)*en.scale*4;
-		  var posY = Math.sin(angl)*en.scale*4;
+		  var posX = Math.cos(angl)*en.scale*5;
+		  var posY = Math.sin(angl)*en.scale*5;
 		  this.thrustEffect.translate(pos.x*en.scale*2+posX, pos.y*en.scale*2+posY);
 	},
 	
@@ -14266,9 +14451,9 @@ en.resources.add("material", "background.planet.earth", {
 	size_rand: 40,
 	angle: 0,
 	angle_rand: 0.1,
-	velocity: 7,
-	velocity_rand: 4,
-	lifespan: 20,
+	velocity: 8,
+	velocity_rand: 7,
+	lifespan: 25,
 	lifespan_rand: 10,
 	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
 	to_color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
@@ -14320,10 +14505,20 @@ en.resources.add("material", "background.planet.earth", {
 		},
 		{
 			emitter: "Smoke",
+			boosting: false,
 			update: function(frame){
-				if(frame < 50){
+				if(frame < 50 && !this.effect.boosting){
 					this.emitter.setVelocity(125 - (1.5*frame), 100 - (60/50)*frame);
 					this.emitter.setAngle(this.emitter.angle, 0.15 - (0.05/50)*frame);
+				}
+				
+				if(!this.boosting && this.effect.boosting){
+					this.emitter.setAngle(this.emitter.angle, 0.3);
+					this.boosting = true;
+				}
+				else if(!this.effect.boosting && this.boosting){
+					this.emitter.setAngle(this.emitter.angle, 0.1);
+					this.boosting = false;
 				}
 			},
 		},
@@ -14336,6 +14531,10 @@ en.resources.add("material", "background.planet.earth", {
 });en.resources.add("audio", "laser_fire_1", {
 	name: "Laser Fire 1",
 	src: "./audio/laser_fire_1.mp3",
+});
+en.resources.add("audio", "laser_impact_1", {
+	name: "Laser impact",
+	src: "./audio/laser_bullet_hit.ogg",
 });en.resources.add("audio", "ship_engine", {
 	name: "Engine",
 	src: "./audio/ship_engine.ogg",

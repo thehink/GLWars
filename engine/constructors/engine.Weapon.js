@@ -2,10 +2,13 @@ en.Weapon = function(options){
 	options = en.utils.defaultOpts({
 		name: "default",
 		type: "Weapon",
+		class: "medium",
 		firerate: 1000,
 		recoil: 3,
 		ammo: -1,
 		clip: -1,
+		energy: 2,
+		energyMax: 100,
 		projectile: "deafult",
 		lastfire: 0,
 	}, options);
@@ -19,7 +22,7 @@ en.Weapon.prototype = {
 		
 		switch(opt.proj_type){
 			case en.utils.vars.projectile_types.BULLET:
-				this.fire_double_bullet(owner, position, angle, opt);
+				this.fire_bullet(owner, position, angle, opt);
 			break;
 			case en.utils.vars.projectile_types.ROCKET:
 				this.fire_rocket(owner, position, angle, opt);
@@ -31,43 +34,37 @@ en.Weapon.prototype = {
 				this.fire_railgun(owner, position, angle, opt);
 			break;
 		}
-		
-		
 	},
 	
 	fire_bullet: function(owner, position, angle, opt){
-		opt.position = {x:position.x, y:position.y};
-		opt.position.x += owner.size * Math.cos(angle);
-		opt.position.y += owner.size * Math.sin(angle);
+		opt.position = position.getRotation(angle-Math.PI/2, 0, 2.5);
 		opt.velocity = owner.body.GetLinearVelocity();
-		opt.rotation = en.math.random2(angle-0.04, angle+0.04);
+		opt.rotation = angle;
 		opt.owner = owner;
 
 		if((en.lastFrameTime - this.lastfire) > this.firerate){
-
 			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
-			
 			this.lastfire = en.lastFrameTime;
 		}
 	},
 	
 	fire_double_bullet: function(owner, position, angle, opt){
-		opt.position = {x:position.x, y:position.y};
+		opt.position = {};
 		opt.velocity = owner.body.GetLinearVelocity();
 		opt.owner = owner;
 		
 		if((en.lastFrameTime - this.lastfire) > this.firerate){
 
-			opt.position.x += owner.size * Math.cos(angle-Math.PI/2);
-			opt.position.y += owner.size * Math.sin(angle-Math.PI/2);
+			//opt.position.x += owner.size * Math.cos(angle-Math.PI/2);
+			//opt.position.y += owner.size * Math.sin(angle-Math.PI/2);
 			
-			opt.rotation = en.math.random2(angle+0.08, angle+0.12);
+
+			opt.position = position.getRotation(angle-Math.PI/2, 1.2, 2.5);
+			opt.rotation = angle+0.01;
 			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
-			
-			opt.position.x += 2*owner.size * Math.cos(angle+Math.PI/2);
-			opt.position.y += 2*owner.size * Math.sin(angle+Math.PI/2);
-			
-			opt.rotation = en.math.random2(angle-0.08, angle-0.12);
+
+			opt.position = position.getRotation(angle-Math.PI/2, -1.2, 2.5);
+			opt.rotation = angle-0.01;
 			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
 			
 			this.lastfire = en.lastFrameTime;

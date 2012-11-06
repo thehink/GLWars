@@ -23,8 +23,46 @@ var client = {
 
 client.init = function(){
 	client.eventsInit();
-	client.player.init();
 	client.stage.init();
+	client.network.init();
+	client.setLogin();
+
+	var stage = this.Stage = new en.Stage({
+		name: "Main",
+	});
+
+	/*
+	for(var i = 0; i < 20; ++i){
+		stage.insertObject(new (en.getClass("Spaceship"))());
+	}
+	*/
+
+	en.addStage(stage);
+	
+	
+	
+	/*
+	client.stage.init();
+	client.player.init();
+	client.start();
+	*/
+};
+
+client.setLogin = function(){
+	client.gui.login.show();
+};
+
+client.handleLoginButton = function(){
+	var username = $("#username").val(),
+		password = $("#password").val();
+		
+	//client.network.login(username, password);
+	
+	client.gui.login.hide();
+	client.player.init();
+	client.start();
+	
+	return false;
 };
 
 client.GameLoop = function(){
@@ -58,6 +96,8 @@ client.keyUpListener = function(ev){
 client.eventsInit = function(){
 	en.setClass("Projectile", client.Projectile);
 	en.setClass("Spaceship", client.Spaceship);
+	
+	$("#login-form").submit(client.handleLoginButton);
 	
 	document.onkeydown = client.keyDownListener;
 	document.onkeyup = client.keyUpListener;
