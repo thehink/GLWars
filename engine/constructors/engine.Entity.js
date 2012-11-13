@@ -5,7 +5,4 @@ en.Entity = function(options){
 };
 
 en.Entity.prototype = {
-	destroy: function(){
-		this.call("destroy", this);
-	},
 };

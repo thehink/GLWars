@@ -11013,7 +11013,7 @@ en.utils.options = function(that, defaults, options){
 	
 	COLLISION_MASKS: {
 		PLAYER: 0xFFFF & ~0x0008,		
-		ENEMY: 0xFFFF & ~0x0008,
+		ENEMY: 0xFFFF,// & ~0x0008,
 		OBJECT: 0xFFFF,
 		PROJECTILE: 0xFFFF & ~0x0008,
 		WALL: 0xFFFF & ~0x0010,
@@ -11289,9 +11289,6 @@ en.Base.prototype = {
 };
 
 en.Entity.prototype = {
-	destroy: function(){
-		this.call("destroy", this);
-	},
 };en.List = function(){
 	this.items = {};
 	this.index = [];
@@ -11418,6 +11415,7 @@ en.Object.prototype = {
 		this.update();
 		this._update();
 	},
+
 	
 	update: function(){
 		
@@ -11438,7 +11436,7 @@ en.Object.prototype = {
 		density: 1,                          //projectile is thrusting, depending not only only at start velocity
 		linear_damping: 0.1,
 		angular_damping: 5,                      //rate projectile decoys
-		range: en.math.random2(10, 12),							//range projectile can travel
+		range: 10,							//range projectile can travel
 		rotation: Math.PI,						//(degrees)which direction is the projectile going
 		
 		size_x: 0.3,
@@ -11526,6 +11524,21 @@ en.Projectile.prototype = {
 	},
 	
 	_collide: function(contact){
+		//this.call("hit", this.body, contact);
+		
+		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
+			fixB = contact.GetFixtureB().GetBody().GetUserData();
+		
+		
+		if(fixB)
+			fixB.damage(this, this.proj_type, this.damage);
+		
+		this.destroy_queue = true;
+	},
+	
+	_BeginContact: function(contact){
+		
+		
 		this.call("hit", this.body, contact);
 		this.destroy_queue = true;
 	},
@@ -11637,24 +11650,29 @@ en.Spaceship.prototype = {
 	
 	explode: function(){
 		this.call("explode");
-		this.destroy();
+		this.destroy_queue = true;
 	},
 	
-	Take_Damage: function(who, type, damage, point, angle){
+	damage: function(who, type, damage){
+
 		
 		if(this.shields > 0){
+			var tmpshields = this.shields;
 			this.shields -= damage;
 			if(this.shields <= 0){
-				this.call("shields_destroyed");
+				this.call("shields_depleted");
+				damage = damage-tmpshields;
 			}
-		}else{
+		}
+		
+		if(this.shields < 1){
 			this.health -= damage;
 			if(this.health <= 0){
 				this.explode();
 			}
 		}
 		
-		this.call("Take_Damage", who, type, damage, point, angle);
+		this.call("_damage", who, type, damage);
 	},
 	
 	fire: function(){
@@ -11714,8 +11732,6 @@ en.Spaceship.prototype = {
 	
 	boost: function(){
 		if(!this.thrusting)this.thrusting = 1;
-		
-		
 		if(!this.boostLock && this.boostedTime++ < this.boostTime){
 			this.boosting = true;
 		}else if(this.boosting){
@@ -11734,7 +11750,13 @@ en.Spaceship.prototype = {
 		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
 			fixB = contact.GetFixtureB().GetBody().GetUserData();
 			
-			//console.log(contact);
+			this.call("hit", this.body, contact);
+	},
+	
+	_BeginContact: function(contact, force){
+		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
+			fixB = contact.GetFixtureB().GetBody().GetUserData();
+			this.call("_BeginContact", this.body, contact);
 	},
 	
 	update: function(){
@@ -11821,6 +11843,18 @@ en.Stage.prototype = {
 			if (fixB)
 				fixB.call("collide", contact);
 		};
+		
+		contactListener.BeginContact = function(contact, force) {
+			var fixA = contact.GetFixtureA().GetBody().GetUserData(),
+				fixB = contact.GetFixtureB().GetBody().GetUserData();
+			
+			if (fixA)
+				fixA.call("BeginContact", contact);
+		
+			if (fixB)
+				fixB.call("BeginContact", contact);
+		};
+		
 		world.SetContactListener(contactListener);
 	},
 	
@@ -12326,13 +12360,13 @@ en.resources.define("texture",{
 	acceleration: 5,
 	density: 1,                          //projectile is thrusting, depending not only only at start velocity
 	decoy: 1,                           //rate projectile decoys
-	range: en.math.random2(200, 300),							//range projectile can travel
+	range: 100,							//range projectile can travel
 	rotation: Math.PI,						//(degrees)which direction is the projectile going
 	
 	size_x: 0.7,
 	size_y: .2,
 	
-	damage: 2,
+	damage: 40,
 	
 	explosion: {
 		explode_range_limit: true,

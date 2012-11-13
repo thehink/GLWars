@@ -120,7 +120,7 @@
 	if(allocated == 1.0 && mod(lived, lifespan) == 0.0){
 		float new_veloc = rnd(velocity, gl_PointCoord);
 		float new_angle = rnd(angle, gl_PointCoord.yx);
-		v = 0.95*initVelocity+vec2(cos(new_angle)*new_veloc, sin(new_angle)*new_veloc);
+		v = initVelocity+vec2(cos(new_angle)*new_veloc, sin(new_angle)*new_veloc);
 		lifespan = life.x;//floor(rand(gl_PointCoord)*50.);
 	}
 

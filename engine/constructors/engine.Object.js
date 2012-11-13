@@ -62,6 +62,7 @@ en.Object.prototype = {
 		this.update();
 		this._update();
 	},
+
 	
 	update: function(){
 		

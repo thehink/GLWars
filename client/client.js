@@ -31,11 +31,11 @@ client.init = function(){
 		name: "Main",
 	});
 
-	/*
+	
 	for(var i = 0; i < 20; ++i){
-		stage.insertObject(new (en.getClass("Spaceship"))());
+		stage.insertObject(new (en.getClass("Spaceship"))({maskBits:en.utils.vars.COLLISION_MASKS.ENEMY}));
 	}
-	*/
+	
 
 	en.addStage(stage);
 	

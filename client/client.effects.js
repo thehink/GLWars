@@ -25,6 +25,7 @@ client.effects.play = function(effectName, time, options){
 	}else{
 		this.queue.push(effect);
 	}
+	return effect;
 };
 
 client.effects.stop = function(effect){

@@ -92,24 +92,29 @@ en.Spaceship.prototype = {
 	
 	explode: function(){
 		this.call("explode");
-		this.destroy();
+		this.destroy_queue = true;
 	},
 	
-	Take_Damage: function(who, type, damage, point, angle){
+	damage: function(who, type, damage){
+
 		
 		if(this.shields > 0){
+			var tmpshields = this.shields;
 			this.shields -= damage;
 			if(this.shields <= 0){
-				this.call("shields_destroyed");
+				this.call("shields_depleted");
+				damage = damage-tmpshields;
 			}
-		}else{
+		}
+		
+		if(this.shields < 1){
 			this.health -= damage;
 			if(this.health <= 0){
 				this.explode();
 			}
 		}
 		
-		this.call("Take_Damage", who, type, damage, point, angle);
+		this.call("_damage", who, type, damage);
 	},
 	
 	fire: function(){
@@ -169,8 +174,6 @@ en.Spaceship.prototype = {
 	
 	boost: function(){
 		if(!this.thrusting)this.thrusting = 1;
-		
-		
 		if(!this.boostLock && this.boostedTime++ < this.boostTime){
 			this.boosting = true;
 		}else if(this.boosting){
@@ -189,7 +192,13 @@ en.Spaceship.prototype = {
 		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
 			fixB = contact.GetFixtureB().GetBody().GetUserData();
 			
-			//console.log(contact);
+			this.call("hit", this.body, contact);
+	},
+	
+	_BeginContact: function(contact, force){
+		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
+			fixB = contact.GetFixtureB().GetBody().GetUserData();
+			this.call("_BeginContact", this.body, contact);
 	},
 	
 	update: function(){

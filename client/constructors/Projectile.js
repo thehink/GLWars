@@ -7,6 +7,9 @@ client.Projectile = function(config){
 
 client.Projectile.prototype = {
 	_init: function(){
+		
+		this.thrustEffect = client.effects.play("BulletTrail", this.range);
+		
 		this.create_mesh();
 		client.soundFX.play("laser_fire_1", true);
 	},
@@ -18,6 +21,15 @@ client.Projectile.prototype = {
 		//transfer body physics position & rotation to graphic mesh position
 		mesh.position.set(pos.x*en.scale, pos.y*en.scale, 0);
 		mesh.rotation.z = this.body.GetAngle();
+		
+		var vel = this.body.GetLinearVelocity();
+			
+		
+		this.thrustEffect.setInitVelocity(vel.x, vel.y);
+		this.thrustEffect.setAngle(mesh.rotation.z);
+		this.thrustEffect.translate(pos.x*en.scale*2, pos.y*en.scale*2);
+		
+		
 		
 		if(this.range < 10)
 			mesh.material.opacity = this.range/10;
@@ -66,8 +78,8 @@ client.Projectile.prototype = {
 				y: collision_point.y*en.scale*2,
 			},
 			initVelocity: {
-				x: proj_vel.x/4,
-				y: proj_vel.y/4,
+				x: proj_vel.x/3,
+				y: proj_vel.y/3,
 			},
 		});
 		
@@ -89,6 +101,8 @@ client.Projectile.prototype = {
 	
 	_destroy: function(){
 		//remove mesh from display
+		this.thrustEffect.setInitVelocity(0, 0);
+		client.effects.stop(this.thrustEffect);
 		client.stage.layers.projectiles.remove(this.mesh);
 	},
 	

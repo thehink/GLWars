@@ -9,7 +9,7 @@ en.Projectile = function(options){
 		density: 1,                          //projectile is thrusting, depending not only only at start velocity
 		linear_damping: 0.1,
 		angular_damping: 5,                      //rate projectile decoys
-		range: en.math.random2(10, 12),							//range projectile can travel
+		range: 10,							//range projectile can travel
 		rotation: Math.PI,						//(degrees)which direction is the projectile going
 		
 		size_x: 0.3,
@@ -97,6 +97,21 @@ en.Projectile.prototype = {
 	},
 	
 	_collide: function(contact){
+		//this.call("hit", this.body, contact);
+		
+		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
+			fixB = contact.GetFixtureB().GetBody().GetUserData();
+		
+		
+		if(fixB)
+			fixB.damage(this, this.proj_type, this.damage);
+		
+		this.destroy_queue = true;
+	},
+	
+	_BeginContact: function(contact){
+		
+		
 		this.call("hit", this.body, contact);
 		this.destroy_queue = true;
 	},

@@ -61,6 +61,18 @@ en.Stage.prototype = {
 			if (fixB)
 				fixB.call("collide", contact);
 		};
+		
+		contactListener.BeginContact = function(contact, force) {
+			var fixA = contact.GetFixtureA().GetBody().GetUserData(),
+				fixB = contact.GetFixtureB().GetBody().GetUserData();
+			
+			if (fixA)
+				fixA.call("BeginContact", contact);
+		
+			if (fixB)
+				fixB.call("BeginContact", contact);
+		};
+		
 		world.SetContactListener(contactListener);
 	},
 	

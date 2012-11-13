@@ -1,16 +1,22 @@
 en.resources.add("effect", "ShipThrustFire", {
 	emitters: [
 		{
-			emitter: "BasicFire",
+			emitter: "BoostFire",
+			boosting: false,
 			update: function(frame){
-				if(frame < 50){
-					this.emitter.setVelocity(125 - (1.5*frame), 100 - (60/50)*frame);
-					this.emitter.setAngle(this.emitter.angle, 0.15 - (0.05/50)*frame);
+				if(this.effect.boosting){
+					this.emitter.unPause();
+					this.boosting = true;
+				}
+				else if(!this.effect.boosting){
+					this.emitter.pause();
+					this.boosting = false;
 				}
 			},
 		},
+		
 		{
-			emitter: "Smoke",
+			emitter: "BasicFire",
 			boosting: false,
 			update: function(frame){
 				if(frame < 50 && !this.effect.boosting){
@@ -26,11 +32,6 @@ en.resources.add("effect", "ShipThrustFire", {
 					this.emitter.setAngle(this.emitter.angle, 0.1);
 					this.boosting = false;
 				}
-			},
-		},
-		{
-			emitter: "Test",
-			update: function(frame){
 			},
 		},
 	]

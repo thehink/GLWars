@@ -21,7 +21,7 @@ en.utils.vars = {
 	
 	COLLISION_MASKS: {
 		PLAYER: 0xFFFF & ~0x0008,		
-		ENEMY: 0xFFFF & ~0x0008,
+		ENEMY: 0xFFFF,// & ~0x0008,
 		OBJECT: 0xFFFF,
 		PROJECTILE: 0xFFFF & ~0x0008,
 		WALL: 0xFFFF & ~0x0010,

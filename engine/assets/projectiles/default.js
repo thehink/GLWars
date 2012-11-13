@@ -6,13 +6,13 @@ en.resources.add("projectile", "deafult", {
 	acceleration: 5,
 	density: 1,                          //projectile is thrusting, depending not only only at start velocity
 	decoy: 1,                           //rate projectile decoys
-	range: en.math.random2(200, 300),							//range projectile can travel
+	range: 100,							//range projectile can travel
 	rotation: Math.PI,						//(degrees)which direction is the projectile going
 	
 	size_x: 0.7,
 	size_y: .2,
 	
-	damage: 2,
+	damage: 40,
 	
 	explosion: {
 		explode_range_limit: true,

@@ -11013,7 +11013,7 @@ en.utils.options = function(that, defaults, options){
 	
 	COLLISION_MASKS: {
 		PLAYER: 0xFFFF & ~0x0008,		
-		ENEMY: 0xFFFF & ~0x0008,
+		ENEMY: 0xFFFF,// & ~0x0008,
 		OBJECT: 0xFFFF,
 		PROJECTILE: 0xFFFF & ~0x0008,
 		WALL: 0xFFFF & ~0x0010,
@@ -11289,9 +11289,6 @@ en.Base.prototype = {
 };
 
 en.Entity.prototype = {
-	destroy: function(){
-		this.call("destroy", this);
-	},
 };en.List = function(){
 	this.items = {};
 	this.index = [];
@@ -11418,6 +11415,7 @@ en.Object.prototype = {
 		this.update();
 		this._update();
 	},
+
 	
 	update: function(){
 		
@@ -11438,7 +11436,7 @@ en.Object.prototype = {
 		density: 1,                          //projectile is thrusting, depending not only only at start velocity
 		linear_damping: 0.1,
 		angular_damping: 5,                      //rate projectile decoys
-		range: en.math.random2(10, 12),							//range projectile can travel
+		range: 10,							//range projectile can travel
 		rotation: Math.PI,						//(degrees)which direction is the projectile going
 		
 		size_x: 0.3,
@@ -11526,6 +11524,21 @@ en.Projectile.prototype = {
 	},
 	
 	_collide: function(contact){
+		//this.call("hit", this.body, contact);
+		
+		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
+			fixB = contact.GetFixtureB().GetBody().GetUserData();
+		
+		
+		if(fixB)
+			fixB.damage(this, this.proj_type, this.damage);
+		
+		this.destroy_queue = true;
+	},
+	
+	_BeginContact: function(contact){
+		
+		
 		this.call("hit", this.body, contact);
 		this.destroy_queue = true;
 	},
@@ -11637,24 +11650,29 @@ en.Spaceship.prototype = {
 	
 	explode: function(){
 		this.call("explode");
-		this.destroy();
+		this.destroy_queue = true;
 	},
 	
-	Take_Damage: function(who, type, damage, point, angle){
+	damage: function(who, type, damage){
+
 		
 		if(this.shields > 0){
+			var tmpshields = this.shields;
 			this.shields -= damage;
 			if(this.shields <= 0){
-				this.call("shields_destroyed");
+				this.call("shields_depleted");
+				damage = damage-tmpshields;
 			}
-		}else{
+		}
+		
+		if(this.shields < 1){
 			this.health -= damage;
 			if(this.health <= 0){
 				this.explode();
 			}
 		}
 		
-		this.call("Take_Damage", who, type, damage, point, angle);
+		this.call("_damage", who, type, damage);
 	},
 	
 	fire: function(){
@@ -11714,8 +11732,6 @@ en.Spaceship.prototype = {
 	
 	boost: function(){
 		if(!this.thrusting)this.thrusting = 1;
-		
-		
 		if(!this.boostLock && this.boostedTime++ < this.boostTime){
 			this.boosting = true;
 		}else if(this.boosting){
@@ -11734,7 +11750,13 @@ en.Spaceship.prototype = {
 		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
 			fixB = contact.GetFixtureB().GetBody().GetUserData();
 			
-			//console.log(contact);
+			this.call("hit", this.body, contact);
+	},
+	
+	_BeginContact: function(contact, force){
+		var fixA = contact.GetFixtureA().GetBody().GetUserData(),
+			fixB = contact.GetFixtureB().GetBody().GetUserData();
+			this.call("_BeginContact", this.body, contact);
 	},
 	
 	update: function(){
@@ -11821,6 +11843,18 @@ en.Stage.prototype = {
 			if (fixB)
 				fixB.call("collide", contact);
 		};
+		
+		contactListener.BeginContact = function(contact, force) {
+			var fixA = contact.GetFixtureA().GetBody().GetUserData(),
+				fixB = contact.GetFixtureB().GetBody().GetUserData();
+			
+			if (fixA)
+				fixA.call("BeginContact", contact);
+		
+			if (fixB)
+				fixB.call("BeginContact", contact);
+		};
+		
 		world.SetContactListener(contactListener);
 	},
 	
@@ -12326,13 +12360,13 @@ en.resources.define("texture",{
 	acceleration: 5,
 	density: 1,                          //projectile is thrusting, depending not only only at start velocity
 	decoy: 1,                           //rate projectile decoys
-	range: en.math.random2(200, 300),							//range projectile can travel
+	range: 100,							//range projectile can travel
 	rotation: Math.PI,						//(degrees)which direction is the projectile going
 	
 	size_x: 0.7,
 	size_y: .2,
 	
-	damage: 2,
+	damage: 40,
 	
 	explosion: {
 		explode_range_limit: true,
@@ -12394,11 +12428,11 @@ client.init = function(){
 		name: "Main",
 	});
 
-	/*
+	
 	for(var i = 0; i < 20; ++i){
-		stage.insertObject(new (en.getClass("Spaceship"))());
+		stage.insertObject(new (en.getClass("Spaceship"))({maskBits:en.utils.vars.COLLISION_MASKS.ENEMY}));
 	}
-	*/
+	
 
 	en.addStage(stage);
 	
@@ -12522,6 +12556,7 @@ client.effects.play = function(effectName, time, options){
 	}else{
 		this.queue.push(effect);
 	}
+	return effect;
 };
 
 client.effects.stop = function(effect){
@@ -14065,6 +14100,9 @@ client.ParticleSystem.prototype = {
 
 client.Projectile.prototype = {
 	_init: function(){
+		
+		this.thrustEffect = client.effects.play("BulletTrail", this.range);
+		
 		this.create_mesh();
 		client.soundFX.play("laser_fire_1", true);
 	},
@@ -14076,6 +14114,15 @@ client.Projectile.prototype = {
 		//transfer body physics position & rotation to graphic mesh position
 		mesh.position.set(pos.x*en.scale, pos.y*en.scale, 0);
 		mesh.rotation.z = this.body.GetAngle();
+		
+		var vel = this.body.GetLinearVelocity();
+			
+		
+		this.thrustEffect.setInitVelocity(vel.x, vel.y);
+		this.thrustEffect.setAngle(mesh.rotation.z);
+		this.thrustEffect.translate(pos.x*en.scale*2, pos.y*en.scale*2);
+		
+		
 		
 		if(this.range < 10)
 			mesh.material.opacity = this.range/10;
@@ -14124,8 +14171,8 @@ client.Projectile.prototype = {
 				y: collision_point.y*en.scale*2,
 			},
 			initVelocity: {
-				x: proj_vel.x/4,
-				y: proj_vel.y/4,
+				x: proj_vel.x/3,
+				y: proj_vel.y/3,
 			},
 		});
 		
@@ -14147,6 +14194,8 @@ client.Projectile.prototype = {
 	
 	_destroy: function(){
 		//remove mesh from display
+		this.thrustEffect.setInitVelocity(0, 0);
+		client.effects.stop(this.thrustEffect);
 		client.stage.layers.projectiles.remove(this.mesh);
 	},
 	
@@ -14157,6 +14206,7 @@ en.extend(client.Projectile, en.Projectile);client.Spaceship = function(config){
 	config = config || {};
 	config.shieldTimeout = 0;
 	config.noUpdate = false;
+	config.meshes = {};
 	
 	en.Spaceship.apply(this, [config]);
 };
@@ -14171,6 +14221,24 @@ client.Spaceship.prototype = {
 		this.engineAudio.node.playbackRate.value = 0.5;
 		
 		this.create_mesh();
+	},
+	
+	_explode: function(){
+		
+		var position = this.body.GetPosition(),
+			velocity = this.body.GetLinearVelocity();
+		
+		client.effects.play("Explosion", 15, {
+			radius: this.size,
+			position: {
+				x: position.x*en.scale*2,
+				y: position.y*en.scale*2,
+			},
+			initVelocity: {
+				x: velocity.x/3,
+				y: velocity.y/3,
+			},
+		});
 	},
 	
 	_update: function(){
@@ -14200,10 +14268,19 @@ client.Spaceship.prototype = {
 		  }
 			
 		  var pos = this.body.GetPosition(),
-			  mesh = this.mesh;
+			  mesh = this.mesh,
+			  hull = this.meshes.hull;
+			  
 		  mesh.position.x = pos.x*en.scale;
 		  mesh.position.y = pos.y*en.scale;
-		  mesh.rotation.z = this.body.GetAngle();
+		  hull.rotation.z = this.body.GetAngle();
+		  
+		  if(this.shield_timeout > 0){
+			  this.shield_timeout--;
+			  this.meshes.shield.material.opacity = this.shield_timeout/10;
+			  if(this.shield_timeout==0)this.meshes.shield.visible = false;
+		  }
+		  
 		  
 		  var vel = this.body.GetLinearVelocity();
 		  
@@ -14216,27 +14293,64 @@ client.Spaceship.prototype = {
 	},
 	
 	create_mesh: function(){
+		
+		var mesh = this.mesh = new THREE.Object3D();
+		
+		
 		var material = en.resources.get("material", this.material),
 			geometry = new THREE.PlaneGeometry(this.size*en.scale*2, this.size*en.scale*2);
-	   
-		//	Multi material
-		if (typeof(material) == 'object' && (material instanceof Array))
-			this.mesh = THREE.SceneUtils.createMultiMaterialObject( geometry, material );
-		else
-			this.mesh = new THREE.Mesh(geometry, material);
-		//mesh.rotation.x = Math.PI;
-		this.mesh.rotation.z = this.body.GetAngle();
-		//mesh.rotation.x=1;
+		
+		this.meshes.hull = new THREE.Mesh(geometry, material);
+		this.meshes.hull.rotation.z = this.body.GetAngle();
+		
 		var pos = this.body.GetPosition();
 		this.mesh.position.set(pos.x*en.scale, pos.y*en.scale, 0);
 		//mesh.overdraw = true;
 		//mesh.castShadow = true;
 		//mesh.receiveShadow = true;
 		
+		
+		var shield_material = en.resources.get("material", "spaceship.shield"),
+			geometry = new THREE.PlaneGeometry(this.size*en.scale*3+32, this.size*en.scale*3+32);
+			
+		this.meshes.shield = new THREE.Mesh(geometry, shield_material);
+		this.meshes.shield.visible = false;
+		
+		for(var i in this.meshes){
+			this.mesh.add(this.meshes[i]);
+		}
+		
 		client.stage.layers.actors.add(this.mesh);
 	},
 	
+	__BeginContact: function(body, contact){
+		var body1 = contact.GetFixtureA().GetBody(),
+			body2 = contact.GetFixtureB().GetBody();
+			
+		var man = new Box2D.Collision.b2WorldManifold();
+		contact.GetWorldManifold(man);
+		
+		
+		if(this.shields > 0){
+			var collision_point = man.m_points[0],
+				body_vel = body1.GetLinearVelocity().Copy(),
+				body_pos = body.GetPosition();
+				
+			body_vel.Subtract(body2.GetLinearVelocity());
+			
+			var angle = Math.atan2(body_pos.y - collision_point.y, body_pos.x - collision_point.x);
+			
+			
+			if(body_vel.LengthSquared() > 50){
+				this.meshes.shield.rotation.z = angle;
+				this.meshes.shield.visible = true;
+				this.shield_timeout = 10;
+			}
+		}
+	},
+	
 	_destroy: function(){
+		this.engineAudio.stop();
 		client.stage.layers.actors.remove(this.mesh);
 	},
 	
@@ -14309,6 +14423,9 @@ en.resources.add("texture", "planet.earth", {
 });
 en.resources.add("texture", "projectiles.bullet", {
 	src: "images/projectiles/bullet.png",
+});
+en.resources.add("texture", "shield", {
+	src: "images/shield.png",
 });
 en.resources.add("texture", "ships/TestSpaceShip", {
 	src: "images/ships/TestSpaceShip.png",
@@ -14393,6 +14510,15 @@ en.resources.add("material", "background.planet.earth", {
 	transparent: true,
 	blending: THREE.AdditiveBlending,
 	texture: "ships/TestSpaceShip",
+});en.resources.add("material", "spaceship.shield", {
+	name: "default",
+	color: 0xffffff,
+	ambient: 0x00b7ea,
+	emissive: 0x00b7ea,
+	opacity: 1,
+	transparent: true,
+	blending: THREE.AdditiveBlending,
+	texture: "shield",
 });en.resources.add("material", "wall", {
 	name: "default",
 	color: 0xffffff,
@@ -14433,16 +14559,30 @@ en.resources.add("material", "background.planet.earth", {
 	numParticles: 1024,
 	texture: 0,
 	radius: 40,
-	size: 100,
-	size_rand: 60,
+	size: 80,
+	size_rand: 79,
 	angle: Math.PI/4,
 	angle_rand: 0.1,
-	velocity: 50,
+	velocity: 45,
 	velocity_rand: 40,
-	lifespan: 10,
-	lifespan_rand:10,
+	lifespan: 5,
+	lifespan_rand:5,
 	color: new THREE.Color(0xffffff).setHSV(193/360, 80/100, 100/100),
 	to_color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
+});en.resources.add("emitter", "BoostFire", {
+	numParticles: 1024,
+	texture: 0,
+	radius: 50,
+	size: 100,
+	size_rand: 80,
+	angle: 0,
+	angle_rand: 0.1,
+	velocity: 50,
+	velocity_rand: 50,
+	lifespan: 7,
+	lifespan_rand: 6,
+	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(122/360, 80/100, 100/100),
 });en.resources.add("emitter", "BulletHit", {
 	numParticles: 128,
 	texture: 0,
@@ -14453,24 +14593,38 @@ en.resources.add("material", "background.planet.earth", {
 	angle_rand: 0.1,
 	velocity: 8,
 	velocity_rand: 7,
-	lifespan: 25,
+	lifespan: 16,     //can not be 15 for some wierd reason. Todo: figure out why
 	lifespan_rand: 10,
 	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
 	to_color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
-});en.resources.add("emitter", "Smoke", {
-	numParticles: 1024,
+});en.resources.add("emitter", "BulletTrail", {
+	numParticles: 32,
 	texture: 0,
-	radius: 50,
-	size: 100,
+	radius: 5,
+	size: 60,
 	size_rand: 50,
 	angle: 0,
 	angle_rand: 0.1,
-	velocity: 130,
-	velocity_rand: 50,
-	lifespan: 10,
+	velocity: 6,
+	velocity_rand: 5,
+	lifespan: 13,     //can not be 15 for some wierd reason. Todo: figure out why
 	lifespan_rand: 10,
-	color: new THREE.Color(0xffffff).setHSV(40/360, 80/100, 100/100),
-	to_color: new THREE.Color(0xffffff).setHSV(1/360, 80/100, 100/100),
+	color: new THREE.Color(0xffffff).setHSV(122/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
+});en.resources.add("emitter", "Explosion", {
+	numParticles: 512,
+	texture: 0,
+	radius: 10,
+	size: 120,
+	size_rand: 110,
+	angle: 0,
+	angle_rand: Math.PI,
+	velocity: 20,
+	velocity_rand: 15,
+	lifespan: 18,     //can not be 15 for some wierd reason. Todo: figure out why
+	lifespan_rand: 20,
+	color: new THREE.Color(0xffffff).setHSV(193/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(20/360, 80/100, 100/100),
 });en.resources.add("emitter", "Test", {
 	numParticles: 128,
 	texture: 0,
@@ -14492,19 +14646,39 @@ en.resources.add("material", "background.planet.earth", {
 			update: function(frame){},
 		},
 	]
+});en.resources.add("effect", "BulletTrail", {
+	emitters: [
+		{
+			emitter: "BulletTrail",
+			update: function(frame){},
+		},
+	]
+});en.resources.add("effect", "Explosion", {
+	emitters: [
+		{
+			emitter: "Explosion",
+			update: function(frame){},
+		},
+	]
 });en.resources.add("effect", "ShipThrustFire", {
 	emitters: [
 		{
-			emitter: "BasicFire",
+			emitter: "BoostFire",
+			boosting: false,
 			update: function(frame){
-				if(frame < 50){
-					this.emitter.setVelocity(125 - (1.5*frame), 100 - (60/50)*frame);
-					this.emitter.setAngle(this.emitter.angle, 0.15 - (0.05/50)*frame);
+				if(this.effect.boosting){
+					this.emitter.unPause();
+					this.boosting = true;
+				}
+				else if(!this.effect.boosting){
+					this.emitter.pause();
+					this.boosting = false;
 				}
 			},
 		},
+		
 		{
-			emitter: "Smoke",
+			emitter: "BasicFire",
 			boosting: false,
 			update: function(frame){
 				if(frame < 50 && !this.effect.boosting){
@@ -14520,11 +14694,6 @@ en.resources.add("material", "background.planet.earth", {
 					this.emitter.setAngle(this.emitter.angle, 0.1);
 					this.boosting = false;
 				}
-			},
-		},
-		{
-			emitter: "Test",
-			update: function(frame){
 			},
 		},
 	]

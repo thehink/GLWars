@@ -1,13 +1,21 @@
 body{
-	margin:0;
+	margin:0;			/* no margin or padding */
 	padding:0;
-	background:#000;
+	background:#000;   /* black background */
 }
 
+/*
+	Clear
+*/
 .clear{
 	clear:both;
 }
 
+/*
+*	name: header
+*   description: Grayish header bar.
+*	NOT USED
+*/
 header{
 	display:block;
 	width:100%;
@@ -17,6 +25,10 @@ header{
 	z-index:10;
 }
 
+/*
+*	name: wrapper
+*	NOT USED
+*/
 section#wrapper{
 	position:absolute;
 	display:block;
@@ -25,16 +37,26 @@ section#wrapper{
 	bottom:50px;
 }
 
+/*
+*	name: loader
+*   description: Loading progressbar
+*   cover whole screen
+*/
+
 #loader{
 	position:absolute;
 	display:block;
-	background:rgba(0,0,0,.8);
-	right:0;
+	background:rgba(0,0,0,.8);     /* background transparent black */
+	right:0;						
 	left:0;
 	bottom:0;
 	top:0;
 	z-index:99;
 }
+
+/* progressbar-wrapper
+*  desc: dark box in middle of screen that wraps around the actual loading-bar
+*/
 
 #progressbar-wrapper{
 	position:relative;
@@ -46,6 +68,10 @@ section#wrapper{
 	background:#111;
 }
 
+/* progressbar
+*  desc: placeholder for completed progress
+*/
+
 #progressbar{
 	position:relative;
 	display:block;
@@ -54,8 +80,14 @@ section#wrapper{
 	top:20px;
 	margin:0 auto;
 	background:#0A0A0A;
-	box-shadow:inset rgba(0,0,0,.6) 0 1px 2px, rgba(255,255,255,.1) 0 1px 1px;
+	box-shadow: inset rgba(0,0,0,.6) 0 1px 2px,
+			    rgba(255,255,255,.1) 0 1px 1px;
 }
+
+/* progressbar-completed
+*  desc: the bar that's going to change
+*  css3 animated with transition
+*/
 
 #progressbar-completed{
 	position:relative;
@@ -105,7 +137,8 @@ h1.title{
 	margin:2% auto;
 	font-size:80px;
 	color:#00819E;
-	text-shadow:rgba(0,208,255,1) -1px -1px 1px, rgba(0,70,84,1) 1px 1px 1px;
+	text-shadow: rgba(0,208,255,1) -1px -1px 1px,
+				 rgba(0,70,84,1) 1px 1px 1px;
 }
 
 h2{
