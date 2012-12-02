@@ -18,7 +18,7 @@
 var Box2D = {};
 
 (function (a2j, undefined) {
-
+/*
    if(!(Object.prototype.defineProperty instanceof Function)
       && Object.prototype.__defineGetter__ instanceof Function
       && Object.prototype.__defineSetter__ instanceof Function)
@@ -30,7 +30,7 @@ var Box2D = {};
             obj.__defineSetter__(p, cfg.set);
       }
    }
-   
+   */
    function emptyFn() {};
    a2j.inherit = function(cls, base) {
       var tmpCtr = cls;
@@ -10872,6 +10872,7 @@ for (i = 0; i < Box2D.postDefs.length; ++i) Box2D.postDefs[i]();
 delete Box2D.postDefs;/***************
 * Physics stuff
 ***************/
+
 var b2Vec2 = Box2D.Common.Math.b2Vec2;
 var b2BodyDef = Box2D.Dynamics.b2BodyDef;
 var b2Body = Box2D.Dynamics.b2Body;
@@ -11203,7 +11204,314 @@ en.math.cos = function(x){
 
 
 //compute cosine: sin(x + PI/2) = cos(x)
-en.resources = {
+en.network = {};
+
+en.stringToBuffer = function(buffer, start, string){
+	for (var i = 0; i < string.length ; i++) {
+	  buffer[start+i] = string.charCodeAt(i);
+	}
+};
+
+en.bufferToString = function(buffer, start, length){
+	var string = "";
+	for (var i = 0; i < length ; i++) {
+		if(buffer[start + i] == 0x0)
+			break;
+	  string += String.fromCharCode(buffer[start + i]);
+	}
+	return string;
+};
+
+en.arrayToString = function(array){
+	var string = "";
+	for (var i = 0, l = array.length; i < l; i++) {
+		if(array[i] == 0x0)
+			break;
+	  string += String.fromCharCode(array[i]);
+	}
+	return string;
+};
+
+en.metas = {
+	authentication: 0,
+	message: 1,
+	gameState: 2,
+	commandState: 3,
+};
+
+en.calcBufferLength = function(struct, data){
+	var length = 0;
+	
+	for(var i = 0; i < struct.length; ++i){
+		var str = struct[i],
+			struct_type = str[1],
+			struct_name = str[0],
+			struct_data = str[2],
+			itemdata = data[struct_name];
+
+		switch(struct_type){
+			case 'String':
+				length += itemdata.length+1;
+			break;
+			case 'Uint8':
+				length += struct_data;
+			break;
+			case 'Int32':
+				length += struct_data*4;
+			break;
+			case 'Float32':
+				length += struct_data*4;
+			break;
+			case 'Bool':
+				length += 1;
+			break;
+			case 'Struct':
+				length += en.calcBufferLength(struct_data, itemdata);
+			break;
+			case 'Array':
+				var array_length = itemdata.length;
+				length += array_length;
+				
+				for(var j = 0; j < itemdata.length; ++j){
+					length += en.calcBufferLength(struct_data, itemdata[j]);
+				}
+			break;
+		}
+	}
+	return length;
+}
+
+en.writeBufferData = function(view, struct, data, pointer){
+	var pointer = pointer || 0;
+	
+	for(var i = 0; i < struct.length; ++i){
+		var str = struct[i],
+			struct_type = str[1],
+			struct_name = str[0],
+			struct_data = str[2],
+			itemdata = data[struct_name];
+			
+		switch(struct_type){
+			case 'String':				
+				view.setUint8(pointer++, itemdata.length);
+				
+				for(var j = 0; j < itemdata.length; j++){
+					view.setUint8(pointer + j, itemdata.charCodeAt(j));
+				}
+				
+				pointer += itemdata.length;
+			break;
+			case 'Uint8':
+				if(itemdata instanceof Array)
+					for(var j = 0; j < struct_data; ++j){
+						view.setUint8(pointer + j, itemdata[j]);
+					}
+				else
+					view.setUint8(pointer, itemdata);
+				
+				pointer += struct_data;
+			break;
+			case 'Float32':
+				if(itemdata instanceof Array)
+					for(var j = 0; j < struct_data; ++j){
+						view.setFloat32(pointer + j *4, itemdata[j]);
+					}
+				else
+					view.setFloat32(pointer, itemdata);
+					
+				pointer += struct_data*4;
+			break;
+			case 'Int32':
+				if(itemdata instanceof Array)
+					for(var j = 0; j < struct_data; ++j){
+						view.setInt32(pointer + j *4, itemdata[j]);
+					}
+				else
+					view.setInt32(pointer, itemdata);
+					
+				pointer += struct_data*4;
+			break;
+			case 'Bool':
+				view.setUint8(pointer, (itemdata ? 1 : 0));
+				pointer += 1;
+			break;
+			case 'Struct':
+				pointer = en.writeBufferData(view, struct_data, itemdata, pointer);
+			break;
+			case 'Array':
+				var array_length = itemdata.length;
+				
+				view.setUint8(pointer, array_length);
+				pointer += 1;
+				
+				for(var j = 0; j < itemdata.length; ++j){
+					pointer = en.writeBufferData(view, struct_data, itemdata[j], pointer);
+				}
+			break;
+		}
+		
+	}
+	return pointer;
+};
+
+
+en.readDataView = function(struct, view, pointer){
+	var data = {},
+		pointer = pointer || 0;
+	
+	for(var i = 0; i < struct.length; ++i){
+		var str = struct[i],
+			struct_type = str[1],
+			struct_name = str[0],
+			struct_data = str[2];
+			
+		switch(struct_type){
+			case 'String':				
+				var str_length = view.getUint8(pointer++),
+					string = "";
+				
+				for(var j = 0; j < str_length; j++){
+					var charCode = view.getUint8(pointer+j);
+					if(charCode == 0x0)
+						break;
+					string += String.fromCharCode(charCode);
+				}
+				
+				data[struct_name] = string;
+				
+				pointer += str_length;
+			break;
+			case 'Uint8':
+				if(struct_data > 1){
+					data[struct_name] = new Array(struct_data);
+					for(var j = 0; j < struct_data; ++j){
+						data[struct_name][j] = view.getUint8(pointer + j);
+					}
+				}else{
+					data[struct_name] = view.getUint8(pointer);
+				}
+
+				pointer += struct_data;
+			break;
+			case 'Int32':
+				if(struct_data > 1){
+					data[struct_name] = new Array(struct_data);
+					for(var j = 0; j < struct_data; ++j){
+						data[struct_name][j] = view.getInt32(pointer + j*4);
+					}
+				}else{
+					data[struct_name] = view.getInt32(pointer);
+				}
+					
+				pointer += struct_data*4;
+			break;
+			case 'Float32':
+				if(struct_data > 1){
+					data[struct_name] = new Array(struct_data);
+					for(var j = 0; j < struct_data; ++j){
+						data[struct_name][j] = view.getFloat32(pointer + j*4);
+					}
+				}else{
+					data[struct_name] = view.getFloat32(pointer);
+				}
+					
+				pointer += struct_data*4;
+			break;
+			case 'Bool':
+				data[struct_name] = view.getUint8(pointer) == 1 ? true : false;
+				pointer += 1;
+			break;
+			case 'Struct':
+				var read = en.readDataView(struct_data, view, pointer);
+				
+				data[struct_name] = read[0];
+				pointer = read[1];
+			break;
+			case 'Array':
+				var array_length = view.getUint8(pointer);
+				data[struct_name] = new Array(array_length);
+				
+				pointer += 1;
+				
+				for(var j = 0; j < array_length; ++j){
+					var read = en.readDataView(struct_data, view, pointer);
+					data[struct_name][j] = read[0];
+					pointer = read[1];
+				}
+			break;
+		}
+	}
+	
+	return [data, pointer];
+};
+
+en.buildBuffer = function(StructID, data){
+		var struct = en.struct.get(StructID);
+		var bufferLength = en.calcBufferLength(struct, data);
+		var buffer = new ArrayBuffer(bufferLength+1);
+		
+		var dataView = new DataView(buffer);
+		dataView.setUint8(0, StructID);
+		en.writeBufferData(dataView, struct, data, 1);
+	
+		return buffer;
+};
+
+
+en.readBufferToData = function(buffer){
+	var dataView = new DataView(buffer);
+	var structID = dataView.getUint8(0);
+	var struct = en.struct.get(structID);
+	
+	var data = en.readDataView(struct, dataView, 1)[0];
+	data._sid = structID;
+	
+	return data;
+};
+
+
+var structTest = [
+	["id", "Uint8", 1],
+	["name", "String"],
+	["floatTest", "Float32", 1],
+	["intTest", "Int32", 1],
+	["players", "Array", [
+		["id", "Uint8", 1],
+		["username", "String"],
+		["position", "Float32", 2],
+	]],
+	["player", "Struct", [
+		["id", "Uint8", 1],
+		["username", "String"]
+	]]
+];
+
+en.test = function(){
+	var data = {
+		username: "Hello",
+		password: "Shitfuck"
+	}
+	
+	var timeNow = Date.now();
+	var times = 100000;
+	
+	var buffer = en.buildBuffer(en.structID.authentication, data);
+	
+	for(var i = 0; i < times; ++i){
+		en.readBufferToData(en.buildBuffer(en.structID.authentication, data));
+	}
+		
+	var timeDiff = Date.now() - timeNow;
+	
+	var opsSecond = times/(timeDiff/1000) >> 0;
+	
+	var dataRead = en.readBufferToData(buffer);
+	
+	console.log(opsSecond + " ops per second");
+	
+	console.log(dataRead);
+	
+};en.resources = {
 	types: {},
 	types_init: {},
 	types_onGet: {},
@@ -11252,7 +11560,96 @@ en.resources.load = function(){
 en.resources.get = function(type, name){
 	if(en.resources.res[type+name])
 	return this.types_onGet[type] ? this.types_onGet[type](en.resources.res[type+name]) : en.resources.res[type+name];
-};b2Vec2.prototype.getRotation = function(theta, x, y){
+};en.struct = {
+	structs: [],
+};
+
+en.structID = {};
+
+
+en.struct.add = function(name, struct){
+	en.structID[name] = en.struct.structs.push(struct)-1;
+	return en.structID[name];
+};
+
+en.struct.get = function(structID){
+	if(typeof structID == "number")
+		return en.struct.structs[structID];
+	else if(typeof structID == "string")
+		return en.struct.structs[en.structID[structID]];
+};
+
+
+
+/**********************************************************
+		STRUCTS ->>
+*/
+
+en.struct.add("message", [
+	["type", "Uint8", 1],
+	["title", "String"],
+	["message", "String"]
+]);
+
+en.struct.add("authentication", [
+	["username", "String",],
+	["password", "String",]
+]);
+
+en.struct.add("clientData", [
+	["fire", "Bool"],
+	["boost", "Bool"],
+	["thrust", "Uint8", 1],
+	["turning", "Uint8", 1],
+]);
+
+en.struct.add("clientCMD", [
+	["command", "Uint8", 1],    //deploy, logout, etc...
+]);
+
+en.struct.add("clientSpaceship", [
+	["hull", "Uint8", 1],
+	["weapons", "Array", [
+		["weaponID", "Uint8", 1] 
+	]],
+]);
+
+en.struct.add("body", [
+	["position", "Float32", 2],
+	["velocity", "Float32", 2],
+	["rotation", "Float32", 1],
+]);
+
+en.struct.add("fullPlayer", [
+	["id", "Uint8", 1],
+	["username", "String"],
+	["kills", "Uint", 1],
+	["deaths", "Uint", 1],
+	["level", "Uint", 1],
+	["spaceship", "Struct", en.struct.get("clientSpaceship")],
+]);
+
+en.struct.add("playerState", [
+	["id", "Uint8", 1],
+	["health", "Int32", 1],
+	["shields", "Int32", 1],
+	["weapon", "Uint8", 1],
+	["clientData", "Struct", en.struct.get("clientData")],
+	["body", "Struct", en.struct.get("body")],
+]);
+
+en.struct.add("gameSync", [ 
+	["playerStates", "Array", en.struct.get("playerState")],
+]);
+
+en.struct.add("gameState", [
+	["name", "String"],
+	["clientPlayerID", "Uint8", 1],
+	["players", "Array", en.struct.get("fullPlayer")],
+]);
+
+
+b2Vec2.prototype.getRotation = function(theta, x, y){
 	var cs = Math.cos(theta),
 		sn = Math.sin(theta);
 		
@@ -11354,7 +11751,9 @@ en.List.prototype = {
 en.Object = function(options){
 	options = en.utils.defaultOpts({
 		type: "Object",
-		body: null,
+		mesh: "spaceship",
+		material: "spaceship_hull",
+		
 		mass: 12,
 		density: 1.0,
 		friction: 0.3,
@@ -11369,8 +11768,6 @@ en.Object = function(options){
 		categoryBits: en.utils.vars.COLLISION_GROUP.OBJECT,
 		maskBits: en.utils.vars.COLLISION_MASKS.OBJECT,
 		size: 5,
-		mesh: "spaceship",
-		material: "spaceship_hull",
 	}, options);
 	en.Base.apply(this, [options]);
 };
@@ -11404,8 +11801,6 @@ en.Object.prototype = {
 		return this.body;
 	},
 	
-
-	
 	init: function(){
 		this.Create_Body();
 		this.call("init");
@@ -11415,7 +11810,62 @@ en.Object.prototype = {
 		this.update();
 		this._update();
 	},
+	
+	structFull: en.struct.add("en.Object.full", [
+		["id", "Uint8", 1],
+		["type", "String"],
+		["mesh", "String"],
+		["material", "String"],
+		
+		["mass", "Float32", 1],
+		["density", "Float32", 1],
+		["friction", "Float32", 1],
+		["restitution", "Float32", 1],
+		["position", "Float32", 2],
+		["linear_damping", "Float32", 1],
+		["angular_damping", "Float32", 1],
+		["rotation", "Float32", 1],
+		["size", "Float32", 1],
+		["categoryBits", "Int32", 1],
+		["maskBits", "Int32", 1],
+	]),
+	
+	structState: en.struct.add("en.Object.state", [
+		["id", "Uint8", 1],
+		["body", "Struct", [
+			["position", "Float32", 2],
+			["velocity", "Float32", 2],
+			["rotation", "Float32", 1],
+			["angualar_velocity", "Float32", 1],
+		]]
+	]),
+	
+	getState: function(){
+		var position = this.body.GetPosition(),
+			velocity = this.body.GetLinearVelocity(),
+			rotation = this.body.GetAngle(),
+			angular_velocity = this.body.GetAngularVelocity();
+		
+		return {
+			id: this.id,
+			body: {
+				position: [position.x, position.y],
+				velocity: [velocity.x, velocity.y],
+				angualar_velocity: rotation,
+				angular_velocity: angular_velocity,
+			}
+		}
+	},
 
+	getFullState: function(){
+	},
+	
+	setState: function(data){
+		
+	},
+
+	setFullState: function(){
+	},
 	
 	update: function(){
 		
@@ -11425,6 +11875,27 @@ en.Object.prototype = {
 		this.call("destroy");
 		this.stage.removeObject(this);
 	},
+};en.Player = function(options){
+	
+	options = en.utils.defaultOpts({
+		username: "test",
+		level: 0,
+		xp: 0,
+		kills: 0,
+		deaths: 0,
+		unlocked_hulls: [
+			0
+		],
+		unlocked_weapons: [
+			0
+		],
+	}, options);
+	
+	en.Spaceship.apply(this, [options]);
+};
+
+en.Player.prototype = function(){
+	
 };en.Projectile = function(options){
 	options = en.utils.defaultOpts({
 		name: "default",
@@ -11574,15 +12045,18 @@ en.Projectile.prototype = {
 			thrust: "ThrustEffect",
 			explosion: "DefaultExplosion",
 		},
+		
+		size: 2,
+		mass: 12,
+		categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
+		maskBits: en.utils.vars.COLLISION_MASKS.PLAYER,
 
 		speed_forward: 400,
 		speed_backward: 100,
-		mass: 12,
 		thrust: 15,
 		decay: .99,
 		turnSpeed: 0.45,
-		size: 2,
-
+		turning: 0,
 		health: 100,
 		shields: 100,
 		shield_radius: 2.1,
@@ -11594,6 +12068,11 @@ en.Projectile.prototype = {
 		boostRecharge: 100,
 
 		weapon_spots: {
+			special: {
+				name: "special",
+				spots: [],
+			},
+			
 			heavy:{
 				name: "heavy",
 				spots: [
@@ -11625,9 +12104,7 @@ en.Projectile.prototype = {
 			firerate: 1.0,
 			recoil: 1.0,
 		},
-		
-		categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
-		maskBits: en.utils.vars.COLLISION_MASKS.PLAYER,
+
 	}, options);
 	
 	this.weapons = [];
@@ -11685,12 +12162,12 @@ en.Spaceship.prototype = {
 	
 	
 	turnLeft: function(){
-		if(!this.body.IsAwake())this.stage.setAwake(this, true);
+		this.stage.setAwake(this, true);
 		this.body.ApplyTorque(this.body.GetInertia()*this.turnSpeed/(1/60.0));
 	},
 	
 	turnRight: function(){
-		if(!this.body.IsAwake())this.stage.setAwake(this, true);
+		this.stage.setAwake(this, true);
 		this.body.ApplyTorque(-this.body.GetInertia()*this.turnSpeed/(1/60.0));
 	},
 	
@@ -11710,7 +12187,7 @@ en.Spaceship.prototype = {
 	
 	setWeapon: function(w){
 		if(this.weapons[w]){
-			this.activeWeapon = new en.Weapon(this.weapons[w]);
+			this.activeWeapon = this.weapons[w];
 		}
 	},
 	
@@ -11767,6 +12244,12 @@ en.Spaceship.prototype = {
 		}else if(this.boostLock)
 			this.boostLock = false;
 		
+		if(this.turning == 1){
+			this.turnLeft();
+		}else if(this.turning == 2){
+			this.turnRight();
+		}
+		
 		if (this.thrusting == 1) {
             var xx1 = Math.cos(this.body.GetAngle())*(this.speed_forward + boostForce),
 				yy1 = Math.sin(this.body.GetAngle())*(this.speed_forward + boostForce);
@@ -11796,12 +12279,22 @@ en.Spaceship.prototype = {
 	en.Base.apply(this, [options]);
 	
 	
-	this.init_physics();
+	this.init();
 	
 	if(state)this.setState(state);
 };
 
 en.Stage.prototype = {
+	
+	init: function(){
+		this.init_physics();
+		this.init_netView();
+	},
+	
+	init_netView: function(){
+		
+	},
+	
 	init_physics: function(){
 		var world = this.physics_world = new Box2D.Dynamics.b2World(new b2Vec2(0, 0), true);
 		
@@ -11887,6 +12380,7 @@ en.Stage.prototype = {
 	},
 	
 	setAwake: function(object, awake){
+		if(object.body.IsAwake() && awake || !object.body.IsAwake() && !awake) return false;
 		object.body.SetAwake(awake);
 		if(awake)this.objects.addToGroup("awake", object.id);
 		else
@@ -11949,16 +12443,18 @@ en.Stage.prototype = {
 	},
 	
 	getState: function(){
-		var state = {
-			name: this.name,
-			objects: [],
-			maxWidth: this.maxWidth,
-			maxHeight: this.maxHeight
-		}
+		var group = this.objects.index;
+		for(var i = 0, l = group.length; i < l; ++i){
+			var obj = this.objects.get(group[i]);
+			if(obj.netSynch){
+				
+			}
+		};
+	},
+	
+	getFullState: function(){
 		
-		for(var i in this.objects){
-			ret.objects.push(this.objects[i].getData());
-		}
+		var state;
 		
 		return state;
 	},
@@ -12059,123 +12555,7 @@ en.Weapon.prototype = {
 	fire_railgun: function(owner, position, angle, opt){
 		
 	},
-};en.resources.define("audio",{
-	name: "Engine",
-	src: "./audio/ship_engine.ogg",
-}, function(content, callback){
-	var sound = client.audio.createSound();
-	sound.load(content.src, function(sound){
-		content.sound = sound;
-		callback(content.type, content);
-	});
-}, function(content){
-	return content.sound;
-});en.resources.define("effect",{
-	emitters: [
-		{
-			emitter: "BasicFire",
-			update: function(frame){},
-		},
-		{
-			emitter: "Smoke",
-			update: function(frame){},
-		}
-	]
-}, function(content, callback){
-	callback(content.type, content);
-}, function(content){
-	return new client.particleEffect(content);
-});en.resources.define("emitter",{
-	numParticles: 1024,
-	texture: 0,
-	radius: 50,
-	size: 200,
-	size_rand: 100,
-	angle: 0,
-	angle_rand: 0.2,
-	velocity: 5,
-	velocity_rand: 1,
-	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
-	to_color: new THREE.Color(0xffffff).setHSV(100/360, 50/100, 100/100),
-}, function(content, callback){
-	callback(content.type, content);
-}, function(content){
-	return new client.PE(client.stage.ParticleSystem, content);
-});en.resources.define("material",{
-	name: "default",
-	color: 0xffffff,
-	ambient: null,
-	emissive: null,
-	opacity: 1,
-	size: 1,
-	transparent: true,
-	blending: THREE.AdditiveBlending,
-	texture: "material/default",
-	
-}, function(content, callback){
-	callback(content.type, content);
-}, function(content){
-	var options = {
-			color: content.color,
-			map: en.resources.get("texture", content.texture),
-			//lightMap :texture,
-			/*alphaTest:true,*/
-			depthTest:false,
-			//depthWrite :true,
-			blending: content.blending,
-			transparent: content.transparent,
-			opacity: content.opacity,
-			//refractionRatio:0.98,
-			//reflectivity:0.9,
-			//wireframe:true,
-			//wireframeLinewidth:20,
-			//vertex_colors: true, 
-			//shading: THREE.FlatShading,
-			size:content.size,
-		};
-		
-		if(content.emissive)
-			options.emissive = new THREE.Color(content.emissive);
-		
-		if(content.ambient)
-			options.ambient = new THREE.Color(content.ambient);
-	
-	return new THREE.MeshLambertMaterial(options);
-});en.resources.define("prerender",{
-	name: "particle",
-	width: 128,
-	height: 128,
-	draw: function(canvas){
-		context.beginPath();
-		context.arc(64, 64, 60, 0, Math.PI*2, false);
-		context.closePath();
-
-		context.lineWidth = 0.5; //0.05
-		context.stroke();
-		context.restore();
-		var gradient = context.createRadialGradient( canvas.width /2, canvas.height /2, 0, canvas.width /2, canvas.height /2, canvas.width /2 );
-
-		gradient.addColorStop( 0, 'rgba(255,255,255,1)' );
-		gradient.addColorStop( 0.2, 'rgba(255,255,255,1)' );
-		//gradient.addColorStop( 0.6, 'rgba(200,200,200,1)' );
-		gradient.addColorStop( 0.4, 'rgba(128,128,128,1)' );
-		gradient.addColorStop( 1, 'rgba(0,0,0,1)' );
-
-		context.fillStyle = gradient;
-
-		context.fill();
-		
-		return canvas;
-	},
-}, function(content, callback){
-	var canvas = document.createElement("canvas");
-	canvas.width = content.width;
-	canvas.height = content.height;
-	content.image = content.draw(canvas);
-	callback(content.type, content);
-}, function(content){
-	return content.image;
-});en.resources.define("projectile",{
+};en.resources.define("projectile",{
 	type: "Projectile",
 	proj_type: en.utils.vars.projectile_types.BULLET,  //bullet || rocket || laser || railgun
 	
@@ -12271,16 +12651,7 @@ en.resources.define("spaceship", {
 }, function(content, callback){
 	callback("ship", content);
 });
-en.resources.define("texture",{
-	name: "default_projectile",
-	src: "projectiles/default.png",
-}, function(content, callback){
-	content.image = THREE.ImageUtils.loadTexture(content.src,null,function(){
-		callback("image", content);
-	});
-}, function(content){
-	return content.image;
-});en.resources.define("weapon", {
+en.resources.define("weapon", {
 		name: "default",
 		type: "Weapon",
 		class: "medium",
@@ -12395,7 +12766,8 @@ en.extend(en.Object, en.Base);
 en.extend(en.Weapon, en.Base);
 en.extend(en.Projectile, en.Object);
 en.extend(en.Entity, en.Object);
-en.extend(en.Spaceship, en.Entity);var requestAnimFrame = (function(callback) {
+en.extend(en.Spaceship, en.Entity);
+en.extend(en.Player, en.Spaceship);var requestAnimFrame = (function(callback) {
     return window.requestAnimationFrame || 
 		   window.webkitRequestAnimationFrame || 
 		   window.mozRequestAnimationFrame || 
@@ -12422,17 +12794,20 @@ client.init = function(){
 	client.eventsInit();
 	client.stage.init();
 	client.network.init();
+	//client.hud.deployment.show();
+	
 	client.setLogin();
+	
 
 	var stage = this.Stage = new en.Stage({
 		name: "Main",
 	});
 
-	
+	/*
 	for(var i = 0; i < 20; ++i){
 		stage.insertObject(new (en.getClass("Spaceship"))({maskBits:en.utils.vars.COLLISION_MASKS.ENEMY}));
 	}
-	
+	*/
 
 	en.addStage(stage);
 	
@@ -12453,11 +12828,13 @@ client.handleLoginButton = function(){
 	var username = $("#username").val(),
 		password = $("#password").val();
 		
-	//client.network.login(username, password);
+	client.network.login(username, password);
 	
+	/*
 	client.gui.login.hide();
 	client.player.init();
 	client.start();
+	*/
 	
 	return false;
 };
@@ -12493,6 +12870,7 @@ client.keyUpListener = function(ev){
 client.eventsInit = function(){
 	en.setClass("Projectile", client.Projectile);
 	en.setClass("Spaceship", client.Spaceship);
+	en.setClass("Player", client.Player);
 	
 	$("#login-form").submit(client.handleLoginButton);
 	
@@ -12506,9 +12884,9 @@ client.initGame = function(playerID){
 
 	
 	//todo: retrieve resource list
-	client.gui.progressbar.set(100*loaded/total);
+	client.gui.progressbar.set((0.5+100*loaded/total >> 0));
 	
-	if(loaded/total === 1){
+	if(loaded/total == 1){
 		client.gui.progressbar.set(100);
 		setTimeout(function(){
 			client.gui.progressbar.hide();
@@ -12600,27 +12978,6 @@ client.effects.update = function(){
 		}
 };client.gui = {};
 
-client.gui.progbar = function(id){
-	this.id = '#'+id;
-	this.value = 0;
-};
-
-client.gui.progbar.prototype = {
-	set: function(percent){
-		this.value = percent <= 100 ? percent : 100;
-		$(this.id + ' > .completed-bar').width(this.value+"%");
-		$(this.id + ' > .status-bar-text > .bar-value').text(this.value);
-	},
-	
-	reset: function(){
-		this.set(0);
-	},
-};
-
-client.gui.healthBar = new client.gui.progbar("health-bar");
-client.gui.shieldBar = new client.gui.progbar("shield-bar");
-client.gui.energyBar = new client.gui.progbar("energy-bar");
-
 
 client.gui.login = {
 	show: function(){
@@ -12658,40 +13015,118 @@ client.gui.progressbar = {
 	
 	
 	
+};client.hud = {};
+
+client.hud.progbar = function(id){
+	this.id = '#'+id;
+	this.value = 0;
+};
+
+client.hud.progbar.prototype = {
+	set: function(percent){
+		this.value = percent <= 100 ? percent : 100;
+		$(this.id + ' > .completed-bar').width(this.value+"%");
+		$(this.id + ' > .status-bar-text > .bar-value').text(this.value);
+	},
+	
+	reset: function(){
+		this.set(0);
+	},
+};
+
+client.hud.healthBar = new client.hud.progbar("health-bar");
+client.hud.shieldBar = new client.hud.progbar("shield-bar");
+client.hud.energyBar = new client.hud.progbar("energy-bar");
+
+client.hud.deployment = {
+	init: function(){
+		$("#deploy-button").click(client.player.deploy);
+	},
+	
+	show: function(){
+		$("#deployment").show();
+	},
+	hide: function(){
+		$("#deployment").hide();
+	},
 };client.network = {
 	client: {},
+	keyPressStream: {},
+	gameStateStream: {},
 };
 
 client.network.init = function(){
+	
+};
 
+client.network.connect = function(onConnected){
+	if(!this.client._socket || this.client._socket.readyState != 1)
+		this.client = new BinaryClient('ws://127.0.0.1:1337');
+		
+	this.client.on('open', onConnected);
+	this.client.on('stream', client.network.onStream);
 };
 
 client.network.login = function(username, password){
 	
-	if(this.client._socket.readyState != 1)
-		this.client = new BinaryClient('ws://127.0.0.1:1337');
-
+	var that = client.network;
 	
-	this.client.on('open', function(stream, meta){
-		var test = new ArrayBuffer( 10 );
-		this.client.send();
-	});
+	if(!that.client._socket || that.client._socket.readyState != 1){
+		client.network.connect(function(){
+			client.network.login(username, password);
+		});
+	}else{
+		var buffer = en.buildBuffer(en.structID.authentication, {
+				username: username || "",
+				password: password || "",
+			});
+			
+		var stream = client.network.client.createStream(en.metas.authentication);
+			stream.write(buffer);
+			stream.end();
+	}
 	
-	this.client.on('stream', client.network.handleStream);
 };
 
-client.network.handleStream = function(stream, meta){
+client.network.streamListeners = [];
+
+client.network.streamListeners[en.metas.message] = function(stream){
+	stream.on('data', function(buffer){
+		var data = en.readBufferToData(buffer);
+		alert('Title: '+ data.title + '\n' + 'Message: '+ data.message);
+	});
+};
+
+client.network.streamListeners[en.metas.gameState] = function(){
+	stream.on('data', function(buffer){
+		var data = en.readBufferToData(buffer);
+		
+	});
+};
+
+client.network.onStream = function(stream, meta){
 	
+	if(typeof client.network.streamListeners[meta] == "function")
+		client.network.streamListeners[meta](stream);
 };client.player = {
 	pl: {},
 };
 
 client.player.init = function(player){
-	client.player.set(new (en.getClass("Spaceship"))());
+	client.player.set(new (en.getClass("Player"))());
+	client.Stage.insertObject(client.player.get());
+};
+
+client.player.deploy = function(){
+	client.player.set(new (en.getClass("Player"))());
 	client.Stage.insertObject(client.player.get());
 };
 
 client.player.set = function(Player){
+	Player.bind("_explode", function(){
+		client.hud.deployment.show();
+	});
+	
 	client.player.pl = Player;
 };
 
@@ -12711,16 +13146,22 @@ client.player.update = function(){
 		
 		
 	if(client.keys[en.utils.vars.KEY.ARROW_RIGHT])
-		this.pl.turnRight();
+		if(this.pl.turning != 2)
+			this.pl.turning = 2;
 	
 	if(client.keys[en.utils.vars.KEY.ARROW_LEFT])
-		this.pl.turnLeft();
+		if(this.pl.turning != 1)
+			this.pl.turning = 1;
+		
+	if(!client.keys[en.utils.vars.KEY.ARROW_LEFT] && !client.keys[en.utils.vars.KEY.ARROW_RIGHT])
+		if(this.pl.turning != 0)
+			this.pl.turning = 0;
 
 	if(client.keys[en.utils.vars.KEY.X])
 		this.pl.fire();
 		
 	if(client.keys[en.utils.vars.KEY.Z])
-		this.pl.test();
+		explode();
 		
 	if(client.keys[en.utils.vars.KEY.SPACE])
 		this.pl.boost();
@@ -12843,6 +13284,14 @@ shit = function(a){
 	}
 };
 
+explode = function(a){
+	for(var i in en.stages.stages[0].objects.items){
+		var obj = en.stages.stages[0].objects.items[i];
+		if(obj.explode)
+			obj.explode();
+	}
+};
+
 client.stage.addEffect = function(effect){								//add particle effect to pool
 	this.ParticleEffects.push(effect);
 };
@@ -12915,29 +13364,7 @@ client.stage.update = function(){
 	cam.position.y = pl.body.GetPosition().y* en.scale + 250 * dx;
 
 	//pl.mesh.rotation.z = pl.body.GetAngle();
-	
-	
-	
-	/*
-	var finalX = -client.player.get().position.x + client.width/2,
-		finalY = -client.player.get().position.y + client.height/2;
-		nowX = client.stage.stage.getX(),
-		nowY = client.stage.stage.getY();
-		
-	var diffX = (finalX-nowX)/28,
-	    diffY = (finalY-nowY)/28,
-		panX = en.math.rnd(nowX+diffX),
-		panY = en.math.rnd(nowY+diffY);
-		
-	//client.stage.stage.setX(panX);
-	//client.stage.stage.setY(panY);
-	if(panX !== nowX || panY !== nowY)
-	client.stage.layers.actors.drawScene();
-	
-	if(client.stage.layers.projectiles.children.length > 0){
-		client.stage.layers.projectiles.drawScene();
-	}
-	*/
+
 };
 function cRand(seed){
 	this.seed = seed || Math.random() * 1251254;
@@ -14091,6 +14518,12 @@ client.ParticleSystem.prototype = {
 	
 		return texture;
 	},
+};client.Player = function(config){
+	en.Player.apply(this, [config]);
+	client.Spaceship.apply(this, [config]);
+};
+
+client.Player.prototype = {
 };client.Projectile = function(config){
 	config = config || {};
 	config.shieldTimeout = 0;
@@ -14101,7 +14534,7 @@ client.ParticleSystem.prototype = {
 client.Projectile.prototype = {
 	_init: function(){
 		
-		this.thrustEffect = client.effects.play("BulletTrail", this.range);
+		this.thrustEffect = client.effects.play("BulletTrail", -1);
 		
 		this.create_mesh();
 		client.soundFX.play("laser_fire_1", true);
@@ -14119,7 +14552,7 @@ client.Projectile.prototype = {
 			
 		
 		this.thrustEffect.setInitVelocity(vel.x, vel.y);
-		this.thrustEffect.setAngle(mesh.rotation.z);
+		this.thrustEffect.setAngle(mesh.rotation.z+Math.PI);
 		this.thrustEffect.translate(pos.x*en.scale*2, pos.y*en.scale*2);
 		
 		
@@ -14200,9 +14633,7 @@ client.Projectile.prototype = {
 	},
 	
 };
-
-
-en.extend(client.Projectile, en.Projectile);client.Spaceship = function(config){
+client.Spaceship = function(config){
 	config = config || {};
 	config.shieldTimeout = 0;
 	config.noUpdate = false;
@@ -14239,6 +14670,9 @@ client.Spaceship.prototype = {
 				y: velocity.y/3,
 			},
 		});
+		
+		this.call("_explode");
+		
 	},
 	
 	_update: function(){
@@ -14357,7 +14791,7 @@ client.Spaceship.prototype = {
 };
 
 
-en.extend(client.Spaceship, en.Spaceship);THREE.StarMap = function(width, height){
+THREE.StarMap = function(width, height){
 	//	Stars
 	
 		var texture = en.resources.get("texture", "background.star"),
@@ -14393,7 +14827,132 @@ en.extend(client.Spaceship, en.Spaceship);THREE.StarMap = function(width, height
 		return this.Star_system;
 };
 
-en.resources.add("texture", "galaxy.1", {
+en.resources.define("audio",{
+	name: "Engine",
+	src: "./audio/ship_engine.ogg",
+}, function(content, callback){
+	var sound = client.audio.createSound();
+	sound.load(content.src, function(sound){
+		content.sound = sound;
+		callback(content.type, content);
+	});
+}, function(content){
+	return content.sound;
+});en.resources.define("effect",{
+	emitters: [
+		{
+			emitter: "BasicFire",
+			update: function(frame){},
+		},
+		{
+			emitter: "Smoke",
+			update: function(frame){},
+		}
+	]
+}, function(content, callback){
+	callback(content.type, content);
+}, function(content){
+	return new client.particleEffect(content);
+});en.resources.define("emitter",{
+	numParticles: 1024,
+	texture: 0,
+	radius: 50,
+	size: 200,
+	size_rand: 100,
+	angle: 0,
+	angle_rand: 0.2,
+	velocity: 5,
+	velocity_rand: 1,
+	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
+	to_color: new THREE.Color(0xffffff).setHSV(100/360, 50/100, 100/100),
+}, function(content, callback){
+	callback(content.type, content);
+}, function(content){
+	return new client.PE(client.stage.ParticleSystem, content);
+});en.resources.define("material",{
+	name: "default",
+	color: 0xffffff,
+	ambient: null,
+	emissive: null,
+	opacity: 1,
+	size: 1,
+	transparent: true,
+	blending: THREE.AdditiveBlending,
+	texture: "material/default",
+	
+}, function(content, callback){
+	callback(content.type, content);
+}, function(content){
+	var options = {
+			color: content.color,
+			map: en.resources.get("texture", content.texture),
+			//lightMap :texture,
+			/*alphaTest:true,*/
+			depthTest:false,
+			//depthWrite :true,
+			blending: content.blending,
+			transparent: content.transparent,
+			opacity: content.opacity,
+			//refractionRatio:0.98,
+			//reflectivity:0.9,
+			//wireframe:true,
+			//wireframeLinewidth:20,
+			//vertex_colors: true, 
+			//shading: THREE.FlatShading,
+			size:content.size,
+		};
+		
+		if(content.emissive)
+			options.emissive = new THREE.Color(content.emissive);
+		
+		if(content.ambient)
+			options.ambient = new THREE.Color(content.ambient);
+	
+	return new THREE.MeshLambertMaterial(options);
+});en.resources.define("prerender",{
+	name: "particle",
+	width: 128,
+	height: 128,
+	draw: function(canvas){
+		context.beginPath();
+		context.arc(64, 64, 60, 0, Math.PI*2, false);
+		context.closePath();
+
+		context.lineWidth = 0.5; //0.05
+		context.stroke();
+		context.restore();
+		var gradient = context.createRadialGradient( canvas.width /2, canvas.height /2, 0, canvas.width /2, canvas.height /2, canvas.width /2 );
+
+		gradient.addColorStop( 0, 'rgba(255,255,255,1)' );
+		gradient.addColorStop( 0.2, 'rgba(255,255,255,1)' );
+		//gradient.addColorStop( 0.6, 'rgba(200,200,200,1)' );
+		gradient.addColorStop( 0.4, 'rgba(128,128,128,1)' );
+		gradient.addColorStop( 1, 'rgba(0,0,0,1)' );
+
+		context.fillStyle = gradient;
+
+		context.fill();
+		
+		return canvas;
+	},
+}, function(content, callback){
+	var canvas = document.createElement("canvas");
+	canvas.width = content.width;
+	canvas.height = content.height;
+	content.image = content.draw(canvas);
+	callback(content.type, content);
+}, function(content){
+	return content.image;
+});en.resources.define("texture",{
+	name: "default_projectile",
+	src: "projectiles/default.png",
+}, function(content, callback){
+	content.image = THREE.ImageUtils.loadTexture(content.src,null,function(){
+		callback("image", content);
+	});
+}, function(content){
+	return content.image;
+});en.resources.add("texture", "galaxy.1", {
 	src: "images/galaxy_1.jpg",
 });
 en.resources.add("texture", "galaxy.2", {
@@ -14579,7 +15138,7 @@ en.resources.add("material", "background.planet.earth", {
 	angle_rand: 0.1,
 	velocity: 50,
 	velocity_rand: 50,
-	lifespan: 7,
+	lifespan: 10,
 	lifespan_rand: 6,
 	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
 	to_color: new THREE.Color(0xffffff).setHSV(122/360, 80/100, 100/100),
@@ -14604,10 +15163,10 @@ en.resources.add("material", "background.planet.earth", {
 	size: 60,
 	size_rand: 50,
 	angle: 0,
-	angle_rand: 0.1,
-	velocity: 6,
-	velocity_rand: 5,
-	lifespan: 13,     //can not be 15 for some wierd reason. Todo: figure out why
+	angle_rand: Math.PI*2,
+	velocity: 0.1,
+	velocity_rand: 0,
+	lifespan: 10,     //can not be 15 for some wierd reason. Todo: figure out why
 	lifespan_rand: 10,
 	color: new THREE.Color(0xffffff).setHSV(122/360, 80/100, 100/100),
 	to_color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
@@ -14708,9 +15267,14 @@ en.resources.add("audio", "laser_impact_1", {
 	name: "Engine",
 	src: "./audio/ship_engine.ogg",
 });
-en.bind("resources/load", function(done, total){
-	client.utils.resourceListener(done, total, client.init);
+en.bind("resources/load", function(total, done){
+	client.utils.resourceListener(total, done, client.init);
 });
 $(document).ready(function(e) {
 	en.resources.load();
 });
+
+en.extend(client.Projectile, en.Projectile);
+en.extend(client.Spaceship, en.Spaceship);
+en.extend(client.Player, en.Player);
+en.extend(client.Player, client.Spaceship);

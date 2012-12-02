@@ -14,12 +14,22 @@ en.Stage = function(options, state){
 	en.Base.apply(this, [options]);
 	
 	
-	this.init_physics();
+	this.init();
 	
 	if(state)this.setState(state);
 };
 
 en.Stage.prototype = {
+	
+	init: function(){
+		this.init_physics();
+		this.init_netView();
+	},
+	
+	init_netView: function(){
+		
+	},
+	
 	init_physics: function(){
 		var world = this.physics_world = new Box2D.Dynamics.b2World(new b2Vec2(0, 0), true);
 		
@@ -105,6 +115,7 @@ en.Stage.prototype = {
 	},
 	
 	setAwake: function(object, awake){
+		if(object.body.IsAwake() && awake || !object.body.IsAwake() && !awake) return false;
 		object.body.SetAwake(awake);
 		if(awake)this.objects.addToGroup("awake", object.id);
 		else
@@ -167,16 +178,18 @@ en.Stage.prototype = {
 	},
 	
 	getState: function(){
-		var state = {
-			name: this.name,
-			objects: [],
-			maxWidth: this.maxWidth,
-			maxHeight: this.maxHeight
-		}
+		var group = this.objects.index;
+		for(var i = 0, l = group.length; i < l; ++i){
+			var obj = this.objects.get(group[i]);
+			if(obj.netSynch){
+				
+			}
+		};
+	},
+	
+	getFullState: function(){
 		
-		for(var i in this.objects){
-			ret.objects.push(this.objects[i].getData());
-		}
+		var state;
 		
 		return state;
 	},

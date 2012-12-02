@@ -35,6 +35,9 @@ client.Spaceship.prototype = {
 				y: velocity.y/3,
 			},
 		});
+		
+		this.call("_explode");
+		
 	},
 	
 	_update: function(){
@@ -153,4 +156,3 @@ client.Spaceship.prototype = {
 };
 
 
-en.extend(client.Spaceship, en.Spaceship);

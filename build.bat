@@ -24,6 +24,7 @@ client.js + ^
 .\utils\*.js + ^
 client.*.js + ^
 .\constructors\*.js + ^
+.\assets_types\*.js + ^
 .\assets\images\*.js + ^
 .\assets\materials\*.js + ^
 .\assets\prerenders\*.js + ^
@@ -35,8 +36,10 @@ init.js ^
 
 cd ..\server\
 copy /b ^
+.\..\engine.build.js + ^
 server.js + ^
 .\lib\*.js + ^
+.\constructors\*.js + ^
 server.*.js + ^
 init.js ^
 .\..\server.build.js

@@ -3,11 +3,20 @@ client.player = {
 };
 
 client.player.init = function(player){
-	client.player.set(new (en.getClass("Spaceship"))());
+	client.player.set(new (en.getClass("Player"))());
+	client.Stage.insertObject(client.player.get());
+};
+
+client.player.deploy = function(){
+	client.player.set(new (en.getClass("Player"))());
 	client.Stage.insertObject(client.player.get());
 };
 
 client.player.set = function(Player){
+	Player.bind("_explode", function(){
+		client.hud.deployment.show();
+	});
+	
 	client.player.pl = Player;
 };
 
@@ -27,16 +36,22 @@ client.player.update = function(){
 		
 		
 	if(client.keys[en.utils.vars.KEY.ARROW_RIGHT])
-		this.pl.turnRight();
+		if(this.pl.turning != 2)
+			this.pl.turning = 2;
 	
 	if(client.keys[en.utils.vars.KEY.ARROW_LEFT])
-		this.pl.turnLeft();
+		if(this.pl.turning != 1)
+			this.pl.turning = 1;
+		
+	if(!client.keys[en.utils.vars.KEY.ARROW_LEFT] && !client.keys[en.utils.vars.KEY.ARROW_RIGHT])
+		if(this.pl.turning != 0)
+			this.pl.turning = 0;
 
 	if(client.keys[en.utils.vars.KEY.X])
 		this.pl.fire();
 		
 	if(client.keys[en.utils.vars.KEY.Z])
-		this.pl.test();
+		explode();
 		
 	if(client.keys[en.utils.vars.KEY.SPACE])
 		this.pl.boost();

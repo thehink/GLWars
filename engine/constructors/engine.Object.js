@@ -1,7 +1,9 @@
 en.Object = function(options){
 	options = en.utils.defaultOpts({
 		type: "Object",
-		body: null,
+		mesh: "spaceship",
+		material: "spaceship_hull",
+		
 		mass: 12,
 		density: 1.0,
 		friction: 0.3,
@@ -16,8 +18,6 @@ en.Object = function(options){
 		categoryBits: en.utils.vars.COLLISION_GROUP.OBJECT,
 		maskBits: en.utils.vars.COLLISION_MASKS.OBJECT,
 		size: 5,
-		mesh: "spaceship",
-		material: "spaceship_hull",
 	}, options);
 	en.Base.apply(this, [options]);
 };
@@ -51,8 +51,6 @@ en.Object.prototype = {
 		return this.body;
 	},
 	
-
-	
 	init: function(){
 		this.Create_Body();
 		this.call("init");
@@ -62,7 +60,62 @@ en.Object.prototype = {
 		this.update();
 		this._update();
 	},
+	
+	structFull: en.struct.add("en.Object.full", [
+		["id", "Uint8", 1],
+		["type", "String"],
+		["mesh", "String"],
+		["material", "String"],
+		
+		["mass", "Float32", 1],
+		["density", "Float32", 1],
+		["friction", "Float32", 1],
+		["restitution", "Float32", 1],
+		["position", "Float32", 2],
+		["linear_damping", "Float32", 1],
+		["angular_damping", "Float32", 1],
+		["rotation", "Float32", 1],
+		["size", "Float32", 1],
+		["categoryBits", "Int32", 1],
+		["maskBits", "Int32", 1],
+	]),
+	
+	structState: en.struct.add("en.Object.state", [
+		["id", "Uint8", 1],
+		["body", "Struct", [
+			["position", "Float32", 2],
+			["velocity", "Float32", 2],
+			["rotation", "Float32", 1],
+			["angualar_velocity", "Float32", 1],
+		]]
+	]),
+	
+	getState: function(){
+		var position = this.body.GetPosition(),
+			velocity = this.body.GetLinearVelocity(),
+			rotation = this.body.GetAngle(),
+			angular_velocity = this.body.GetAngularVelocity();
+		
+		return {
+			id: this.id,
+			body: {
+				position: [position.x, position.y],
+				velocity: [velocity.x, velocity.y],
+				angualar_velocity: rotation,
+				angular_velocity: angular_velocity,
+			}
+		}
+	},
 
+	getFullState: function(){
+	},
+	
+	setState: function(data){
+		
+	},
+
+	setFullState: function(){
+	},
 	
 	update: function(){
 		

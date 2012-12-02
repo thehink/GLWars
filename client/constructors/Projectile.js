@@ -8,7 +8,7 @@ client.Projectile = function(config){
 client.Projectile.prototype = {
 	_init: function(){
 		
-		this.thrustEffect = client.effects.play("BulletTrail", this.range);
+		this.thrustEffect = client.effects.play("BulletTrail", -1);
 		
 		this.create_mesh();
 		client.soundFX.play("laser_fire_1", true);
@@ -26,7 +26,7 @@ client.Projectile.prototype = {
 			
 		
 		this.thrustEffect.setInitVelocity(vel.x, vel.y);
-		this.thrustEffect.setAngle(mesh.rotation.z);
+		this.thrustEffect.setAngle(mesh.rotation.z+Math.PI);
 		this.thrustEffect.translate(pos.x*en.scale*2, pos.y*en.scale*2);
 		
 		
@@ -107,6 +107,3 @@ client.Projectile.prototype = {
 	},
 	
 };
-
-
-en.extend(client.Projectile, en.Projectile);

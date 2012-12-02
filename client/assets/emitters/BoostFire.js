@@ -8,7 +8,7 @@ en.resources.add("emitter", "BoostFire", {
 	angle_rand: 0.1,
 	velocity: 50,
 	velocity_rand: 50,
-	lifespan: 7,
+	lifespan: 10,
 	lifespan_rand: 6,
 	color: new THREE.Color(0xffffff).setHSV(200/360, 80/100, 100/100),
 	to_color: new THREE.Color(0xffffff).setHSV(122/360, 80/100, 100/100),

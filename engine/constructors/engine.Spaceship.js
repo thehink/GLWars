@@ -16,15 +16,18 @@ en.Spaceship = function(options){
 			thrust: "ThrustEffect",
 			explosion: "DefaultExplosion",
 		},
+		
+		size: 2,
+		mass: 12,
+		categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
+		maskBits: en.utils.vars.COLLISION_MASKS.PLAYER,
 
 		speed_forward: 400,
 		speed_backward: 100,
-		mass: 12,
 		thrust: 15,
 		decay: .99,
 		turnSpeed: 0.45,
-		size: 2,
-
+		turning: 0,
 		health: 100,
 		shields: 100,
 		shield_radius: 2.1,
@@ -36,6 +39,11 @@ en.Spaceship = function(options){
 		boostRecharge: 100,
 
 		weapon_spots: {
+			special: {
+				name: "special",
+				spots: [],
+			},
+			
 			heavy:{
 				name: "heavy",
 				spots: [
@@ -67,9 +75,7 @@ en.Spaceship = function(options){
 			firerate: 1.0,
 			recoil: 1.0,
 		},
-		
-		categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
-		maskBits: en.utils.vars.COLLISION_MASKS.PLAYER,
+
 	}, options);
 	
 	this.weapons = [];
@@ -127,12 +133,12 @@ en.Spaceship.prototype = {
 	
 	
 	turnLeft: function(){
-		if(!this.body.IsAwake())this.stage.setAwake(this, true);
+		this.stage.setAwake(this, true);
 		this.body.ApplyTorque(this.body.GetInertia()*this.turnSpeed/(1/60.0));
 	},
 	
 	turnRight: function(){
-		if(!this.body.IsAwake())this.stage.setAwake(this, true);
+		this.stage.setAwake(this, true);
 		this.body.ApplyTorque(-this.body.GetInertia()*this.turnSpeed/(1/60.0));
 	},
 	
@@ -152,7 +158,7 @@ en.Spaceship.prototype = {
 	
 	setWeapon: function(w){
 		if(this.weapons[w]){
-			this.activeWeapon = new en.Weapon(this.weapons[w]);
+			this.activeWeapon = this.weapons[w];
 		}
 	},
 	
@@ -208,6 +214,12 @@ en.Spaceship.prototype = {
 			this.boostedTime -= this.boostTime/this.boostRecharge;
 		}else if(this.boostLock)
 			this.boostLock = false;
+		
+		if(this.turning == 1){
+			this.turnLeft();
+		}else if(this.turning == 2){
+			this.turnRight();
+		}
 		
 		if (this.thrusting == 1) {
             var xx1 = Math.cos(this.body.GetAngle())*(this.speed_forward + boostForce),

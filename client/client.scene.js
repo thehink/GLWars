@@ -115,6 +115,14 @@ shit = function(a){
 	}
 };
 
+explode = function(a){
+	for(var i in en.stages.stages[0].objects.items){
+		var obj = en.stages.stages[0].objects.items[i];
+		if(obj.explode)
+			obj.explode();
+	}
+};
+
 client.stage.addEffect = function(effect){								//add particle effect to pool
 	this.ParticleEffects.push(effect);
 };
@@ -187,27 +195,5 @@ client.stage.update = function(){
 	cam.position.y = pl.body.GetPosition().y* en.scale + 250 * dx;
 
 	//pl.mesh.rotation.z = pl.body.GetAngle();
-	
-	
-	
-	/*
-	var finalX = -client.player.get().position.x + client.width/2,
-		finalY = -client.player.get().position.y + client.height/2;
-		nowX = client.stage.stage.getX(),
-		nowY = client.stage.stage.getY();
-		
-	var diffX = (finalX-nowX)/28,
-	    diffY = (finalY-nowY)/28,
-		panX = en.math.rnd(nowX+diffX),
-		panY = en.math.rnd(nowY+diffY);
-		
-	//client.stage.stage.setX(panX);
-	//client.stage.stage.setY(panY);
-	if(panX !== nowX || panY !== nowY)
-	client.stage.layers.actors.drawScene();
-	
-	if(client.stage.layers.projectiles.children.length > 0){
-		client.stage.layers.projectiles.drawScene();
-	}
-	*/
+
 };

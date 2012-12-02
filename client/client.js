@@ -25,17 +25,20 @@ client.init = function(){
 	client.eventsInit();
 	client.stage.init();
 	client.network.init();
+	//client.hud.deployment.show();
+	
 	client.setLogin();
+	
 
 	var stage = this.Stage = new en.Stage({
 		name: "Main",
 	});
 
-	
+	/*
 	for(var i = 0; i < 20; ++i){
 		stage.insertObject(new (en.getClass("Spaceship"))({maskBits:en.utils.vars.COLLISION_MASKS.ENEMY}));
 	}
-	
+	*/
 
 	en.addStage(stage);
 	
@@ -56,11 +59,13 @@ client.handleLoginButton = function(){
 	var username = $("#username").val(),
 		password = $("#password").val();
 		
-	//client.network.login(username, password);
+	client.network.login(username, password);
 	
+	/*
 	client.gui.login.hide();
 	client.player.init();
 	client.start();
+	*/
 	
 	return false;
 };
@@ -96,6 +101,7 @@ client.keyUpListener = function(ev){
 client.eventsInit = function(){
 	en.setClass("Projectile", client.Projectile);
 	en.setClass("Spaceship", client.Spaceship);
+	en.setClass("Player", client.Player);
 	
 	$("#login-form").submit(client.handleLoginButton);
 	
