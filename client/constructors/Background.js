@@ -56,6 +56,8 @@ THREE.Background = function(width, height){
 			new THREE.MeshLambertMaterial({color: 0xffffff,map: en.resources.get("texture", "planet.earth"),depthTest:false,blending: THREE.AdditiveBlending,transparent: true,opacity: 1.0,size:1.0,})
 			);
 		
+		return obj;
+		
 		var l = space_objects.length;
 		
 		for(var i = 0; i < width; i+= 50){

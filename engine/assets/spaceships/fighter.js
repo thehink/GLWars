@@ -1,8 +1,10 @@
-en.resources.add("ship", "Fighter", {
-	name: "default",
+en.resources.add("spaceship", "Fighter", {
+	name: "Fighter",
 	type: "Spaceship",
+	netSynch: true,
+	synchStep: true, 
 	images: {
-		ship: "ships/TestSpaceShip",
+		ship: "ship_fighter",
 		shield: "shield",
 	},
 	
@@ -15,39 +17,78 @@ en.resources.add("ship", "Fighter", {
 		thrust: "ThrustEffect",
 		explosion: "DefaultExplosion",
 	},
-
-	speed_forward: 1000,
-	speed_backward: 100,
+	
+	material: "spaceship_hull",
+	
+	size: 2,
 	mass: 12,
+	categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
+	maskBits: en.utils.vars.COLLISION_MASKS.PLAYER,
+
+	speed_forward: 400,
+	speed_backward: 100,
+	thrust: 15,
 	decay: .99,
 	turnSpeed: 0.45,
-	size: 2,
-
+	turning: 0,
 	health: 100,
+	maxHealth: 100,
 	shields: 100,
-	shield_radius: 3.5,
+	maxShields: 100,
+	shield_radius: 2.1,
 	shield_recharge_time: 10,
 	shield_recharge_frequency: 5,
+
+	boostForce: 700,
+	boostTime: 2000,
+	boostRecharge: 3000,
 	
+	//KEY DATA
+	
+	firing: false,
+	boosting: false,
+	thrusting: 0,
+	turning_left: false,
+	turning_right: false,
+	weapon: 0,
+	
+	//END KEY Data
+
 	weapon_spots: {
-		front: {
-			x: 0,
-			y: 2,
+		special: {
+			name: "special",
+			spots: [],
 		},
-		sideRight: {
-			x: 1.2,
-			y: 2.5,
+		
+		secondary:{
+			name: "secondary",
+			spots: [
+				{
+					angle: 0,
+					x: 0,
+					y: 2,
+				}
+			],
 		},
-		sideLeft: {
-			x: -1.2,
-			y: 2.5,
-		},
+		primary: {
+			name: "primary",
+			spots: [
+				{
+					angle: 0.1,
+					x: 1.2,
+					y: 2.5,
+				},
+				{
+					angle: -0.1,
+					x: -1.2,
+					y: 2.5,
+				}
+			],
+		}
 	},
 	
 	weapon_bonus: {
 		firerate: 1.0,
-		clip: 1.0,
-		ammo: 1.0,
 		recoil: 1.0,
 	},
 });

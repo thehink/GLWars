@@ -29,8 +29,9 @@ en.arrayToString = function(array){
 en.metas = {
 	authentication: 0,
 	message: 1,
-	gameState: 2,
-	commandState: 3,
+	fullState: 2,
+	state: 3,
+	commandState: 4,
 };
 
 en.calcBufferLength = function(struct, data){
@@ -53,6 +54,9 @@ en.calcBufferLength = function(struct, data){
 			case 'Int32':
 				length += struct_data*4;
 			break;
+			case 'Float64':
+				length += struct_data*8;
+			break;
 			case 'Float32':
 				length += struct_data*4;
 			break;
@@ -63,10 +67,10 @@ en.calcBufferLength = function(struct, data){
 				length += en.calcBufferLength(struct_data, itemdata);
 			break;
 			case 'Array':
-				var array_length = itemdata.length;
-				length += array_length;
-				
-				for(var j = 0; j < itemdata.length; ++j){
+				var array_length = itemdata ? itemdata.length : 0;
+				length += 1;
+
+				for(var j = 0; j < array_length; ++j){
 					length += en.calcBufferLength(struct_data, itemdata[j]);
 				}
 			break;
@@ -125,6 +129,16 @@ en.writeBufferData = function(view, struct, data, pointer){
 					
 				pointer += struct_data*4;
 			break;
+			case 'Float64':
+				if(itemdata instanceof Array)
+					for(var j = 0; j < struct_data; ++j){
+						view.setFloat64(pointer + j *8, itemdata[j]);
+					}
+				else
+					view.setFloat64(pointer, itemdata);
+					
+				pointer += struct_data*8;
+			break;
 			case 'Bool':
 				view.setUint8(pointer, (itemdata ? 1 : 0));
 				pointer += 1;
@@ -133,12 +147,12 @@ en.writeBufferData = function(view, struct, data, pointer){
 				pointer = en.writeBufferData(view, struct_data, itemdata, pointer);
 			break;
 			case 'Array':
-				var array_length = itemdata.length;
+				var array_length = itemdata ? itemdata.length : 0;
 				
 				view.setUint8(pointer, array_length);
 				pointer += 1;
 				
-				for(var j = 0; j < itemdata.length; ++j){
+				for(var j = 0; j < array_length; ++j){
 					pointer = en.writeBufferData(view, struct_data, itemdata[j], pointer);
 				}
 			break;
@@ -199,6 +213,18 @@ en.readDataView = function(struct, view, pointer){
 					
 				pointer += struct_data*4;
 			break;
+			case 'Float64':
+				if(struct_data > 1){
+					data[struct_name] = new Array(struct_data);
+					for(var j = 0; j < struct_data; ++j){
+						data[struct_name][j] = view.getFloat64(pointer + j*8);
+					}
+				}else{
+					data[struct_name] = view.getFloat64(pointer);
+				}
+					
+				pointer += struct_data*8;
+			break;
 			case 'Float32':
 				if(struct_data > 1){
 					data[struct_name] = new Array(struct_data);
@@ -223,9 +249,11 @@ en.readDataView = function(struct, view, pointer){
 			break;
 			case 'Array':
 				var array_length = view.getUint8(pointer);
-				data[struct_name] = new Array(array_length);
-				
 				pointer += 1;
+				
+				if(array_length==0) continue;
+				
+				data[struct_name] = new Array(array_length);
 				
 				for(var j = 0; j < array_length; ++j){
 					var read = en.readDataView(struct_data, view, pointer);
@@ -279,6 +307,18 @@ var structTest = [
 		["username", "String"]
 	]]
 ];
+
+en.test2 = function(){
+	var data = client.Stage.getFullState();
+	
+	var structID = en.structID.stageFullState; 
+	
+	var buffer = en.buildBuffer(structID, data);
+	var read = en.readBufferToData(buffer);
+	
+	console.log(data, buffer, read);
+	
+};
 
 en.test = function(){
 	var data = {

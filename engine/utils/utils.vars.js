@@ -20,10 +20,11 @@ en.utils.vars = {
 	//################
 	
 	COLLISION_MASKS: {
-		PLAYER: 0xFFFF & ~0x0008,		
+		PLAYER: 0xFFFF,		
 		ENEMY: 0xFFFF,// & ~0x0008,
 		OBJECT: 0xFFFF,
-		PROJECTILE: 0xFFFF & ~0x0008,
+		PROJECTILE: 0xFFFF,
+		PROJECTILE_HEAVY: 0xFFFF & ~0x0008,
 		WALL: 0xFFFF & ~0x0010,
 		ALL: 0xFFFF,	
 	},

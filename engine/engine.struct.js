@@ -10,6 +10,12 @@ en.struct.add = function(name, struct){
 	return en.structID[name];
 };
 
+en.struct.extend = function(name, name2, struct){
+	en.struct.add(name+name2, struct);
+	if(en.struct.structs[en.structID[name]])
+		en.struct.structs[en.structID[name]].push([name2, "Array", struct]);
+};
+
 en.struct.get = function(structID){
 	if(typeof structID == "number")
 		return en.struct.structs[structID];
@@ -23,6 +29,24 @@ en.struct.get = function(structID){
 		STRUCTS ->>
 */
 
+en.struct.add("stageFullState", [
+		["name", "String"],
+		["time", "Int32", 1],
+		["reset", "Bool"],
+		["remove", "Array", [
+			["id", "Uint8", 1],
+			["method", "Uint8", 1],
+		]],
+]);
+
+en.struct.add("stageState", [
+	["time", "Int32", 1],
+	["remove", "Array", [
+			["id", "Int32", 1],
+			["method", "Uint8", 1],
+		]],
+]);
+
 en.struct.add("message", [
 	["type", "Uint8", 1],
 	["title", "String"],
@@ -35,21 +59,32 @@ en.struct.add("authentication", [
 ]);
 
 en.struct.add("clientData", [
-	["fire", "Bool"],
-	["boost", "Bool"],
-	["thrust", "Uint8", 1],
-	["turning", "Uint8", 1],
+	["firing", "Bool"],
+	["boosting", "Bool"],
+	["thrusting", "Uint8", 1],
+	["turning_right", "Bool"],
+	["turning_left", "Bool"],
+	["weapon", "Uint8", 1]
 ]);
 
 en.struct.add("clientCMD", [
 	["command", "Uint8", 1],    //deploy, logout, etc...
 ]);
 
-en.struct.add("clientSpaceship", [
+en.struct.add("serverCMD", [
+	["command", "Uint8", 1],    //deploy, logout, etc...
+]);
+
+en.struct.add("deployPlayer", [
+	["color", "Int32", 1],
 	["hull", "Uint8", 1],
 	["weapons", "Array", [
 		["weaponID", "Uint8", 1] 
 	]],
+]);
+
+en.struct.add("serverDeployPlayer", [
+	["id", "Uint8", 1],
 ]);
 
 en.struct.add("body", [
@@ -75,15 +110,4 @@ en.struct.add("playerState", [
 	["clientData", "Struct", en.struct.get("clientData")],
 	["body", "Struct", en.struct.get("body")],
 ]);
-
-en.struct.add("gameSync", [ 
-	["playerStates", "Array", en.struct.get("playerState")],
-]);
-
-en.struct.add("gameState", [
-	["name", "String"],
-	["clientPlayerID", "Uint8", 1],
-	["players", "Array", en.struct.get("fullPlayer")],
-]);
-
 

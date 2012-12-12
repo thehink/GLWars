@@ -10893,14 +10893,13 @@ var en = {
 	utils: {},
 	draw: typeof THREE == "object" ? true : false,
 	scale: 40,
-	
+	isServer: typeof module === 'undefined' ? false : true,
 	options: {
 		isServer: typeof module === 'undefined' ? false : true,
 		fps: 60,
 		spatialAreaSize: 64,
 		debug: true,
 	},
-	
 	
 	log: function(name, msg2, msg3, msg4){
 		if(en.options.debug){
@@ -10978,6 +10977,9 @@ en.addStage = function(stage){
 };
 en.utils.defaultOpts = function(defaults, options){
 	for(var i in options){
+		if(typeof defaults[i] == "object"){
+			defaults[i] = en.utils.defaultOpts(defaults[i], options[i]);
+		}else
 		defaults[i] = options[i];
 	};
 	return defaults;
@@ -10991,6 +10993,8 @@ en.utils.options = function(that, defaults, options){
 			that[i] = defaults[i];
 	};
 	return defaults;
+};en.utils.genObjStruct = function(objects){
+	
 };en.utils.vars = {	
 	projectile_types: {
 		BULLET: 0x0001,				//bullet
@@ -11013,10 +11017,11 @@ en.utils.options = function(that, defaults, options){
 	//################
 	
 	COLLISION_MASKS: {
-		PLAYER: 0xFFFF & ~0x0008,		
+		PLAYER: 0xFFFF,		
 		ENEMY: 0xFFFF,// & ~0x0008,
 		OBJECT: 0xFFFF,
-		PROJECTILE: 0xFFFF & ~0x0008,
+		PROJECTILE: 0xFFFF,
+		PROJECTILE_HEAVY: 0xFFFF & ~0x0008,
 		WALL: 0xFFFF & ~0x0010,
 		ALL: 0xFFFF,	
 	},
@@ -11235,8 +11240,9 @@ en.arrayToString = function(array){
 en.metas = {
 	authentication: 0,
 	message: 1,
-	gameState: 2,
-	commandState: 3,
+	fullState: 2,
+	state: 3,
+	commandState: 4,
 };
 
 en.calcBufferLength = function(struct, data){
@@ -11259,6 +11265,9 @@ en.calcBufferLength = function(struct, data){
 			case 'Int32':
 				length += struct_data*4;
 			break;
+			case 'Float64':
+				length += struct_data*8;
+			break;
 			case 'Float32':
 				length += struct_data*4;
 			break;
@@ -11269,10 +11278,10 @@ en.calcBufferLength = function(struct, data){
 				length += en.calcBufferLength(struct_data, itemdata);
 			break;
 			case 'Array':
-				var array_length = itemdata.length;
-				length += array_length;
-				
-				for(var j = 0; j < itemdata.length; ++j){
+				var array_length = itemdata ? itemdata.length : 0;
+				length += 1;
+
+				for(var j = 0; j < array_length; ++j){
 					length += en.calcBufferLength(struct_data, itemdata[j]);
 				}
 			break;
@@ -11331,6 +11340,16 @@ en.writeBufferData = function(view, struct, data, pointer){
 					
 				pointer += struct_data*4;
 			break;
+			case 'Float64':
+				if(itemdata instanceof Array)
+					for(var j = 0; j < struct_data; ++j){
+						view.setFloat64(pointer + j *8, itemdata[j]);
+					}
+				else
+					view.setFloat64(pointer, itemdata);
+					
+				pointer += struct_data*8;
+			break;
 			case 'Bool':
 				view.setUint8(pointer, (itemdata ? 1 : 0));
 				pointer += 1;
@@ -11339,12 +11358,12 @@ en.writeBufferData = function(view, struct, data, pointer){
 				pointer = en.writeBufferData(view, struct_data, itemdata, pointer);
 			break;
 			case 'Array':
-				var array_length = itemdata.length;
+				var array_length = itemdata ? itemdata.length : 0;
 				
 				view.setUint8(pointer, array_length);
 				pointer += 1;
 				
-				for(var j = 0; j < itemdata.length; ++j){
+				for(var j = 0; j < array_length; ++j){
 					pointer = en.writeBufferData(view, struct_data, itemdata[j], pointer);
 				}
 			break;
@@ -11405,6 +11424,18 @@ en.readDataView = function(struct, view, pointer){
 					
 				pointer += struct_data*4;
 			break;
+			case 'Float64':
+				if(struct_data > 1){
+					data[struct_name] = new Array(struct_data);
+					for(var j = 0; j < struct_data; ++j){
+						data[struct_name][j] = view.getFloat64(pointer + j*8);
+					}
+				}else{
+					data[struct_name] = view.getFloat64(pointer);
+				}
+					
+				pointer += struct_data*8;
+			break;
 			case 'Float32':
 				if(struct_data > 1){
 					data[struct_name] = new Array(struct_data);
@@ -11429,9 +11460,11 @@ en.readDataView = function(struct, view, pointer){
 			break;
 			case 'Array':
 				var array_length = view.getUint8(pointer);
-				data[struct_name] = new Array(array_length);
-				
 				pointer += 1;
+				
+				if(array_length==0) continue;
+				
+				data[struct_name] = new Array(array_length);
 				
 				for(var j = 0; j < array_length; ++j){
 					var read = en.readDataView(struct_data, view, pointer);
@@ -11486,6 +11519,18 @@ var structTest = [
 	]]
 ];
 
+en.test2 = function(){
+	var data = client.Stage.getFullState();
+	
+	var structID = en.structID.stageFullState; 
+	
+	var buffer = en.buildBuffer(structID, data);
+	var read = en.readBufferToData(buffer);
+	
+	console.log(data, buffer, read);
+	
+};
+
 en.test = function(){
 	var data = {
 		username: "Hello",
@@ -11516,16 +11561,23 @@ en.test = function(){
 	types_init: {},
 	types_onGet: {},
 	res: {},
+	cache: [],
 	count: 0,
 	loaded: 0,
 	queue: [],
 };
 
+en.res = {};
+
 en.resources.define = function(type, content, init, get){
 	if(!this.types[type])this.types[type] = {};
-	this.types_init[type] = init;
+		this.types_init[type] = init;
+
+	if(!en.res[type])
+		en.res[type] = {};
+	
 	if(get)this.types_onGet[type] = get;
-	this.types[type] = content;
+		this.types[type] = content;
 };
 
 en.resources.template = function(template, object){
@@ -11551,6 +11603,9 @@ en.resources.load = function(){
 		en.resources.types_init[this.queue[i][0]](this.queue[i][1], function(type, data){
 			en.resources.loaded++;
 			en.resources.res[data.data_type+data.name] = en.resources.template(en.resources.types[data.data_type], data);
+			
+			en.res[data.data_type][data.name] = en.resources.cache.push(en.resources.res[data.data_type+data.name])-1;
+	
 			en.call("resources/load", en.resources.count, en.resources.loaded);
 		});
 	}
@@ -11559,8 +11614,19 @@ en.resources.load = function(){
 
 en.resources.get = function(type, name){
 	if(en.resources.res[type+name])
-	return this.types_onGet[type] ? this.types_onGet[type](en.resources.res[type+name]) : en.resources.res[type+name];
-};en.struct = {
+		return this.types_onGet[type] ? this.types_onGet[type](en.resources.res[type+name]) : en.resources.res[type+name];
+};
+
+en.getRes = function(id){
+	if(typeof id == "string"){
+		var sl = id.split('.');
+		return en.resources.cache[en.res[sl[0]][sl[1]]];
+	}else if(typeof id == "number")
+		return en.resources.cache[id];
+	else
+		return false;
+};
+en.struct = {
 	structs: [],
 };
 
@@ -11570,6 +11636,12 @@ en.structID = {};
 en.struct.add = function(name, struct){
 	en.structID[name] = en.struct.structs.push(struct)-1;
 	return en.structID[name];
+};
+
+en.struct.extend = function(name, name2, struct){
+	en.struct.add(name+name2, struct);
+	if(en.struct.structs[en.structID[name]])
+		en.struct.structs[en.structID[name]].push([name2, "Array", struct]);
 };
 
 en.struct.get = function(structID){
@@ -11585,6 +11657,24 @@ en.struct.get = function(structID){
 		STRUCTS ->>
 */
 
+en.struct.add("stageFullState", [
+		["name", "String"],
+		["time", "Int32", 1],
+		["reset", "Bool"],
+		["remove", "Array", [
+			["id", "Uint8", 1],
+			["method", "Uint8", 1],
+		]],
+]);
+
+en.struct.add("stageState", [
+	["time", "Int32", 1],
+	["remove", "Array", [
+			["id", "Int32", 1],
+			["method", "Uint8", 1],
+		]],
+]);
+
 en.struct.add("message", [
 	["type", "Uint8", 1],
 	["title", "String"],
@@ -11597,21 +11687,32 @@ en.struct.add("authentication", [
 ]);
 
 en.struct.add("clientData", [
-	["fire", "Bool"],
-	["boost", "Bool"],
-	["thrust", "Uint8", 1],
-	["turning", "Uint8", 1],
+	["firing", "Bool"],
+	["boosting", "Bool"],
+	["thrusting", "Uint8", 1],
+	["turning_right", "Bool"],
+	["turning_left", "Bool"],
+	["weapon", "Uint8", 1]
 ]);
 
 en.struct.add("clientCMD", [
 	["command", "Uint8", 1],    //deploy, logout, etc...
 ]);
 
-en.struct.add("clientSpaceship", [
+en.struct.add("serverCMD", [
+	["command", "Uint8", 1],    //deploy, logout, etc...
+]);
+
+en.struct.add("deployPlayer", [
+	["color", "Int32", 1],
 	["hull", "Uint8", 1],
 	["weapons", "Array", [
 		["weaponID", "Uint8", 1] 
 	]],
+]);
+
+en.struct.add("serverDeployPlayer", [
+	["id", "Uint8", 1],
 ]);
 
 en.struct.add("body", [
@@ -11637,17 +11738,6 @@ en.struct.add("playerState", [
 	["clientData", "Struct", en.struct.get("clientData")],
 	["body", "Struct", en.struct.get("body")],
 ]);
-
-en.struct.add("gameSync", [ 
-	["playerStates", "Array", en.struct.get("playerState")],
-]);
-
-en.struct.add("gameState", [
-	["name", "String"],
-	["clientPlayerID", "Uint8", 1],
-	["players", "Array", en.struct.get("fullPlayer")],
-]);
-
 
 b2Vec2.prototype.getRotation = function(theta, x, y){
 	var cs = Math.cos(theta),
@@ -11720,8 +11810,8 @@ en.List.prototype = {
 	
 	removeFromGroup: function(group, id){
 		if(this.groups[group]){
-			var index;
-			if(index = this.index.indexOf(id)){
+			var index = this.index.indexOf(id);
+			if(index){
 				this.groups[group].splice(index, 1);
 			};
 		}
@@ -11750,9 +11840,11 @@ en.List.prototype = {
 };
 en.Object = function(options){
 	options = en.utils.defaultOpts({
+		name: "default",
 		type: "Object",
-		mesh: "spaceship",
 		material: "spaceship_hull",
+		
+		netSynch: false,
 		
 		mass: 12,
 		density: 1.0,
@@ -11769,6 +11861,12 @@ en.Object = function(options){
 		maskBits: en.utils.vars.COLLISION_MASKS.OBJECT,
 		size: 5,
 	}, options);
+	
+	this.bodyDiff = {
+		position: new b2Vec2(),
+		rotation: 0,
+	},
+	
 	en.Base.apply(this, [options]);
 };
 
@@ -11780,11 +11878,13 @@ en.Object.prototype = {
 			
 		body_def.type = Box2D.Dynamics.b2Body.b2_dynamicBody;
 		body_def.angle = this.rotation;
+		
 		body_def.position.x = this.position.x;
 		body_def.position.y = this.position.y;
 	
 		fix_def.filter.categoryBits = this.categoryBits;
 		fix_def.filter.maskBits = this.maskBits;
+		fix_def.filter.groupIndex = -this.id;
 		fix_def.shape = new Box2D.Collision.Shapes.b2CircleShape(this.size);
 		fix_def.density = this.density;
 		fix_def.friction = this.friction;
@@ -11808,37 +11908,16 @@ en.Object.prototype = {
 	
 	__update: function(){
 		this.update();
-		this._update();
+		this.call("update");
 	},
 	
-	structFull: en.struct.add("en.Object.full", [
-		["id", "Uint8", 1],
-		["type", "String"],
-		["mesh", "String"],
-		["material", "String"],
-		
-		["mass", "Float32", 1],
-		["density", "Float32", 1],
-		["friction", "Float32", 1],
-		["restitution", "Float32", 1],
-		["position", "Float32", 2],
-		["linear_damping", "Float32", 1],
-		["angular_damping", "Float32", 1],
-		["rotation", "Float32", 1],
-		["size", "Float32", 1],
-		["categoryBits", "Int32", 1],
-		["maskBits", "Int32", 1],
-	]),
+	setAwake: function(){
+		this.stage.setAwake(this, true);
+	},
 	
-	structState: en.struct.add("en.Object.state", [
-		["id", "Uint8", 1],
-		["body", "Struct", [
-			["position", "Float32", 2],
-			["velocity", "Float32", 2],
-			["rotation", "Float32", 1],
-			["angualar_velocity", "Float32", 1],
-		]]
-	]),
+	setAsleep: function(){
+		this.stage.setAwake(this, false);
+	},
 	
 	getState: function(){
 		var position = this.body.GetPosition(),
@@ -11851,33 +11930,109 @@ en.Object.prototype = {
 			body: {
 				position: [position.x, position.y],
 				velocity: [velocity.x, velocity.y],
-				angualar_velocity: rotation,
+				rotation: rotation,
 				angular_velocity: angular_velocity,
 			}
 		}
 	},
 
 	getFullState: function(){
+		return {
+			id: this.id,
+			type: this.type,
+			material: this.material,
+			
+			mass: this.mass,
+			density: this.density,
+			friction: this.friction,
+			restitution: this.restitution,
+			position: {
+				x: this.position.x,
+				y: this.position.y,
+			},
+			linear_damping: this.linear_damping,
+			angular_damping: this.angular_damping,
+			rotation: this.rotation,
+			size: this.size,
+			categoryBits: this.categoryBits,
+			maskBits: this.maskBits,
+		};
 	},
 	
-	setState: function(data){
+	setState: function(state){
+		//this.stage.lastServerUpdate;
 		
+		//console.log(this.body.GetAngularVelocity()/state.body.angular_velocity, this.stage.serverDT);
+		
+		var mult = this.stage.serverDT/(100000/60);
+
+		this.body.SetPositionAndAngle(new b2Vec2(state.body.position[0], state.body.position[1]), state.body.rotation);
+		this.body.SetAngularVelocity(state.body.angular_velocity);
+		this.body.SetLinearVelocity(new b2Vec2(state.body.velocity[0], state.body.velocity[1]));
 	},
 
 	setFullState: function(){
+		
+	},
+	
+	lagCompensate: function(){
+		  var currentPos = this.body.GetPosition().Copy();
+		  var positionDiff = this.bodyDiff.position.Copy();
+		  positionDiff.Subtract(currentPos);
+		  positionDiff.Multiply(0.1);
+		  currentPos.Add(positionDiff);
+		  
+		  var currentRotation = this.body.GetAngle(),
+			  angleDiff = this.bodyDiff.rotation-this.body.GetAngle();
+  
+		  this.body.SetPositionAndAngle(currentPos, (Math.abs(angleDiff) > 0.5 ? this.bodyDiff.rotation : currentRotation+0.1*angleDiff));
 	},
 	
 	update: function(){
 		
 	},
 	
-	destroy: function(){
+	destroy: function(method){
 		this.call("destroy");
 		this.stage.removeObject(this);
+		this.destroy_queue = false;
 	},
-};en.Player = function(options){
+};
+
+en.struct.extend("stageFullState", "Object", [
+		["id", "Uint8", 1],
+		["type", "String"],
+		["material", "String"],
+		
+		["mass", "Float32", 1],
+		["density", "Float32", 1],
+		["friction", "Float32", 1],
+		["restitution", "Float32", 1],
+		["position", "Struct", [
+			["x", "Float32", 1],
+			["y", "Float32", 1],
+		]],
+		["linear_damping", "Float32", 1],
+		["angular_damping", "Float32", 1],
+		["rotation", "Float32", 1],
+		["size", "Float32", 1],
+		["categoryBits", "Int32", 1],
+		["maskBits", "Int32", 1],
+]);
+
+en.struct.extend("stageState", "Object", [
+	  ["id", "Uint8", 1],
+	  ["body", "Struct", [
+		  ["position", "Float32", 2],
+		  ["velocity", "Float32", 2],
+		  ["rotation", "Float32", 1],
+		  ["angular_velocity", "Float32", 1],
+	  ]]
+]);en.Player = function(options){
 	
 	options = en.utils.defaultOpts({
+		type: "Player",
+		netSynch: true,
 		username: "test",
 		level: 0,
 		xp: 0,
@@ -11894,9 +12049,53 @@ en.Object.prototype = {
 	en.Spaceship.apply(this, [options]);
 };
 
-en.Player.prototype = function(){
+en.Player.prototype = {
 	
-};en.Projectile = function(options){
+};
+
+en.struct.extend("stageFullState", "Player", [
+		["id", "Uint8", 1],
+		["type", "String"],
+		["name", "String"],
+		["material", "String"],
+		["color", "Int32", 1],
+		
+		["mass", "Float32", 1],
+		["density", "Float32", 1],
+		["friction", "Float32", 1],
+		["restitution", "Float32", 1],
+		["position", "Struct", [
+			["x", "Float32", 1],
+			["y", "Float32", 1],
+		]],
+		["linear_damping", "Float32", 1],
+		["angular_damping", "Float32", 1],
+		["rotation", "Float32", 1],
+		["size", "Float32", 1],
+		["categoryBits", "Int32", 1],
+		["maskBits", "Int32", 1],
+]);
+
+en.struct.extend("stageState", "Player", [
+	  ["id", "Uint8", 1],
+	  ["health", "Int32", 1],
+	  ["shields", "Int32", 1],
+	  ["boostTimeleft", "Int32", 1],
+	  ["body", "Struct", [
+		  ["position", "Float32", 2],
+		  ["velocity", "Float32", 2],
+		  ["rotation", "Float32", 1],
+		  ["angular_velocity", "Float32", 1],
+	  ]],
+	  ["clientData", "Struct", [
+		["firing", "Bool"],
+		["boosting", "Bool"],
+		["thrusting", "Uint8", 1],
+		["turning_right", "Bool"],
+		["turning_left", "Bool"],
+		["weapon", "Uint8", 1]
+	  ]]
+]);en.Projectile = function(options){
 	options = en.utils.defaultOpts({
 		name: "default",
 		type: "Projectile",
@@ -11910,8 +12109,13 @@ en.Player.prototype = function(){
 		range: 10,							//range projectile can travel
 		rotation: Math.PI,						//(degrees)which direction is the projectile going
 		
-		size_x: 0.3,
+		size_x: 0.1,
 		size_y: 0.1,
+		
+		position: {
+			x: 0,
+			y: 0
+		},
 		
 		damage: 2,
 		
@@ -11965,11 +12169,14 @@ en.Projectile.prototype = {
 			
 		body_def.type = Box2D.Dynamics.b2Body.b2_dynamicBody;
 		body_def.angle = this.rotation;
+
 		body_def.position.x = this.position.x;
 		body_def.position.y = this.position.y;
 	
 		fix_def.filter.categoryBits = this.categoryBits;
 		fix_def.filter.maskBits = this.maskBits;
+		fix_def.filter.groupIndex = -this.owner.id;
+		
 		fix_def.shape = new Box2D.Collision.Shapes.b2PolygonShape(this.size);
 		fix_def.shape.SetAsBox(this.size_x, this.size_y);
 		fix_def.density = this.density;
@@ -12031,8 +12238,10 @@ en.Projectile.prototype = {
 	options = en.utils.defaultOpts({
 		name: "default",
 		type: "Spaceship",
+		netSynch: true,
+		synchStep: true, 
 		images: {
-			ship: "ships/TestSpaceShip",
+			ship: "ship_fighter",
 			shield: "shield",
 		},
 		
@@ -12046,6 +12255,9 @@ en.Projectile.prototype = {
 			explosion: "DefaultExplosion",
 		},
 		
+		material: "spaceship_hull",
+		color: 0xffffff,
+		
 		size: 2,
 		mass: 12,
 		categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
@@ -12058,14 +12270,27 @@ en.Projectile.prototype = {
 		turnSpeed: 0.45,
 		turning: 0,
 		health: 100,
+		maxHealth: 100,
 		shields: 100,
+		maxShields: 100,
 		shield_radius: 2.1,
 		shield_recharge_time: 10,
 		shield_recharge_frequency: 5,
 
 		boostForce: 700,
-		boostTime: 100,
-		boostRecharge: 100,
+		boostTime: 2000,
+		boostRecharge: 3000,
+		
+		//KEY DATA
+		
+		firing: false,
+		boosting: false,
+		thrusting: 0,
+		turning_left: false,
+		turning_right: false,
+		weapon: 0,
+		
+		//END KEY Data
 
 		weapon_spots: {
 			special: {
@@ -12073,8 +12298,8 @@ en.Projectile.prototype = {
 				spots: [],
 			},
 			
-			heavy:{
-				name: "heavy",
+			secondary:{
+				name: "secondary",
 				spots: [
 					{
 						angle: 0,
@@ -12083,8 +12308,8 @@ en.Projectile.prototype = {
 					}
 				],
 			},
-			medium: {
-				name: "medium",
+			primary: {
+				name: "primary",
 				spots: [
 					{
 						angle: 0.1,
@@ -12110,8 +12335,7 @@ en.Projectile.prototype = {
 	this.weapons = [];
 	this.activeWeapon = 0;
 	
-	this.boosting = false;
-	this.boostedTime = 0;
+	this.boostTimeleft = 0;
 	this.boostLock = false;
 	
 	en.Entity.apply(this, [options]);
@@ -12121,17 +12345,12 @@ en.Projectile.prototype = {
 en.Spaceship.prototype = {
 	
 	defaultt: function(){
-		this.addWeapon("default");
+		this.addWeapon("PlasmaGun");
 		this.setWeapon(0);
 	},
 	
-	explode: function(){
-		this.call("explode");
-		this.destroy_queue = true;
-	},
-	
 	damage: function(who, type, damage){
-
+		if(!en.isServer)return false;
 		
 		if(this.shields > 0){
 			var tmpshields = this.shields;
@@ -12144,16 +12363,14 @@ en.Spaceship.prototype = {
 		
 		if(this.shields < 1){
 			this.health -= damage;
-			if(this.health <= 0){
-				this.explode();
-			}
 		}
-		
+
 		this.call("_damage", who, type, damage);
 	},
 	
 	fire: function(){
 		//todo: fire weapon
+	
 		if(this.activeWeapon){
 			if(!this.body.IsAwake())this.stage.setAwake(this, true);
 			this.activeWeapon.fire(this, this.body.GetPosition(), this.body.GetAngle());
@@ -12191,16 +12408,20 @@ en.Spaceship.prototype = {
 		}
 	},
 	
-	startThrust: function(speed){
-		if(!this.thrusting){
-			this.thrusting = true;
-			this.stage.setAwake(this, true);
-			this.thrusting = 1;
-		}
+	thrust_forward: function(){
+		var boostForce = this.boosting ? this.boostForce : 0;
+		var xx1 = Math.cos(this.body.GetAngle())*(this.speed_forward + boostForce),
+			yy1 = Math.sin(this.body.GetAngle())*(this.speed_forward + boostForce);
+        this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
+		
 	},
 	
-	backThrust: function(){
-		this.thrusting = 2;
+	thrust_back: function(){
+		var boostForce = this.boosting ? this.boostForce : 0;
+		
+		var xx1 = -Math.cos(this.body.GetAngle())*(this.speed_backward + boostForce),
+			yy1 = -Math.sin(this.body.GetAngle())*(this.speed_backward + boostForce);
+        this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
 	},
 	
 	stopThrust: function(){
@@ -12209,8 +12430,10 @@ en.Spaceship.prototype = {
 	
 	boost: function(){
 		if(!this.thrusting)this.thrusting = 1;
-		if(!this.boostLock && this.boostedTime++ < this.boostTime){
+		
+		if(!this.boostLock && this.boostTimeleft > 0){
 			this.boosting = true;
+			this.boostTimeleft -= this.stage.deltaTime;
 		}else if(this.boosting){
 			this.boosting = false;
 			this.boostLock = true;
@@ -12221,6 +12444,12 @@ en.Spaceship.prototype = {
 	stopBoost: function(){
 		if(this.boosting)
 			this.boosting = false;
+	},
+	
+	resetState: function(){
+		this.health = this.maxHealth;
+		this.shields = this.maxShields;
+		this.boostTimeleft = this.boostTime;
 	},
 	
 	_collide: function(contact){
@@ -12237,33 +12466,205 @@ en.Spaceship.prototype = {
 	},
 	
 	update: function(){
-		var boostForce = this.boosting ? this.boostForce : 0;
-		
-		if(!this.boosting && this.boostedTime > 0){
-			this.boostedTime -= this.boostTime/this.boostRecharge;
-		}else if(this.boostLock)
-			this.boostLock = false;
-		
-		if(this.turning == 1){
-			this.turnLeft();
-		}else if(this.turning == 2){
-			this.turnRight();
+		if(this.health <= 0){
+			if(en.isServer)this.explode();
 		}
 		
-		if (this.thrusting == 1) {
-            var xx1 = Math.cos(this.body.GetAngle())*(this.speed_forward + boostForce),
-				yy1 = Math.sin(this.body.GetAngle())*(this.speed_forward + boostForce);
-            this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
-        }
+		if(!this.boosting && this.boostTimeleft < this.boostTime){
+			this.boostTimeleft += this.stage.deltaTime * (this.boostTime / this.boostRecharge);
+		}else if(this.boostLock && this.boostTimeleft >= this.boostTime)
+			this.boostLock = false;
 		
-		if (this.thrusting == 2) {
-            var xx1 = -Math.cos(this.body.GetAngle())*(this.speed_backward + boostForce),
-				yy1 = -Math.sin(this.body.GetAngle())*(this.speed_backward + boostForce);
-            this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
-        }
+		if(this.boostTimeleft > this.boostTime)
+			this.boostTimeleft = this.boostTime;
+			
+		
+		if(this.thrusting == 1)
+			this.thrust_forward();
+		else if(this.thrusting == 2)
+			this.thrust_back();
+		
+		if(this.turning_left)
+			this.turnLeft();
+		else if(this.turning_right)
+			this.turnRight();
+
+		if(this.boosting)
+			this.boost();
+			
+		if(this.firing)
+			this.fire();
 	},
 	
-};en.Stage = function(options, state){
+	explode: function(){
+		this.destroy_queue = true;
+	},
+	
+	destroy: function(method){
+		this.call("explode");
+		this.call("destroy");
+		this.stage.removeObject(this);
+		this.destroy_queue = false;
+	},
+	
+	getRT_data: function(){
+		var data = {
+			firing: this.firing,
+			boosting: this.boosting,
+			thrusting: this.thrusting,
+			turning_left: this.turning_left,
+			turning_right: this.turning_right,
+			weapon: 0,
+		};
+		
+		return data;
+	},
+	
+	setRT_data: function(data){
+		this.firing = data.firing;
+		this.boosting = data.boosting;
+		this.thrusting = data.thrusting;
+		this.turning_left = data.turning_left;
+		this.turning_right = data.turning_right;
+	},
+	
+	setState: function(state){
+		this.setRT_data(state.clientData);
+		
+		this.boostTimeleft = state.boostTimeleft;
+		this.health = state.health;
+		this.shields = state.shields;
+		
+		//this.bodyDiff.position.Set(state.body.position[0], state.body.position[1]);
+		//this.bodyDiff.rotation = state.body.rotation;
+		
+		  var currentVelocity = this.body.GetLinearVelocity().Copy();
+		  var currentPos = this.body.GetPosition().Copy();
+		  var positionDiff = new b2Vec2(state.body.position[0], state.body.position[1]);
+		  positionDiff.Subtract(currentPos);
+		  
+		  
+		  /*
+		  var dtx = positionDiff.x / (state.body.velocity[0]-currentVelocity.x);
+		  var dty = positionDiff.y / (state.body.velocity[1]-currentVelocity.y);
+
+		  currentPos.Set(
+		  	state.body.position[0] + (dtx*state.body.velocity[0]),
+			state.body.position[1] + (dty*state.body.velocity[0])
+		  );
+		  */
+		  
+		 
+
+		  
+		  if(positionDiff.LengthSquared() > 625){
+			  currentPos.Set(state.body.position[0], state.body.position[1]);
+		  }else{
+			  positionDiff.Multiply(0.01);
+		  	  currentPos.Add(positionDiff);
+		  }
+		
+		  
+		 
+		  
+		  var currentRotation = this.body.GetAngle(),
+			  angleDiff = state.body.rotation-this.body.GetAngle();
+
+		this.body.SetPositionAndAngle(currentPos, (angleDiff > 0.5 ? state.body.rotation : currentRotation+0.12*angleDiff));
+		this.body.SetAngularVelocity(state.body.angular_velocity);
+		this.body.SetLinearVelocity(new b2Vec2(state.body.velocity[0], state.body.velocity[1]));
+	},
+	
+	getState: function(){
+		var position = this.body.GetPosition(),
+			velocity = this.body.GetLinearVelocity(),
+			rotation = this.body.GetAngle(),
+			angular_velocity = this.body.GetAngularVelocity();
+		
+		return {
+			id: this.id,
+			health: this.health,
+			shields: this.shields,
+			boostTimeleft: this.boostTimeleft,
+			body: {
+				position: [position.x, position.y],
+				velocity: [velocity.x, velocity.y],
+				rotation: rotation,
+				angular_velocity: angular_velocity,
+			},
+			clientData: this.getRT_data(),
+		}
+	},
+
+	getFullState: function(){
+		return {
+			id: this.id,
+			name: this.name,
+			type: this.type,
+			material: this.material,
+			color: this.color,
+			
+			mass: this.mass,
+			density: this.density,
+			friction: this.friction,
+			restitution: this.restitution,
+			position: {
+				x: this.position.x,
+				y: this.position.y,
+			},
+			linear_damping: this.linear_damping,
+			angular_damping: this.angular_damping,
+			rotation: this.rotation,
+			size: this.size,
+			categoryBits: this.categoryBits,
+			maskBits: this.maskBits,
+		};
+	},
+};
+
+en.struct.extend("stageFullState", "Spaceship", [
+		["id", "Uint8", 1],
+		["type", "String"],
+		["name", "String"],
+		["material", "String"],
+		["color", "Int32", 1],
+		
+		["mass", "Float32", 1],
+		["density", "Float32", 1],
+		["friction", "Float32", 1],
+		["restitution", "Float32", 1],
+		["position", "Struct", [
+			["x", "Float32", 1],
+			["y", "Float32", 1],
+		]],
+		["linear_damping", "Float32", 1],
+		["angular_damping", "Float32", 1],
+		["rotation", "Float32", 1],
+		["size", "Float32", 1],
+		["categoryBits", "Int32", 1],
+		["maskBits", "Int32", 1],
+]);
+
+en.struct.extend("stageState", "Spaceship", [
+	  ["id", "Uint8", 1],
+	  ["health", "Int32", 1],
+	  ["shields", "Int32", 1],
+	  ["boostTimeleft", "Int32", 1],
+	  ["body", "Struct", [
+		  ["position", "Float32", 2],
+		  ["velocity", "Float32", 2],
+		  ["rotation", "Float32", 1],
+		  ["angular_velocity", "Float32", 1],
+	  ]],
+	  ["clientData", "Struct", [
+		["firing", "Bool"],
+		["boosting", "Bool"],
+		["thrusting", "Uint8", 1],
+		["turning_right", "Bool"],
+		["turning_left", "Bool"],
+		["weapon", "Uint8", 1]
+	  ]]
+]);en.Stage = function(options, state){
 	options = en.utils.defaultOpts({
 		name: "",
 		objects: new en.List(),
@@ -12271,28 +12672,39 @@ en.Spaceship.prototype = {
 		physics_world: null,
 		width: 5132/en.scale,
 		height: 5132/en.scale,
-		lastUpdate: 0,
+		weapons: [],
 		i: 0,
 		s: 0,
 	}, options);
 	
+	this.deltaObjects = [];
+	this.deltaRemove = [];
+	
+	this.lastUpdate = Date.now();
+	this.deltaTime = 0;
+	this.frameTime = 0;
+	this.lastServerUpdate = 0;
+	
+	this.currentTime = Date.now();
+	this.accumulator = 0;
+	this.dt = 1000/60;
+	this.t = 0;
+	
 	en.Base.apply(this, [options]);
-	
-	
+
 	this.init();
 	
 	if(state)this.setState(state);
 };
 
 en.Stage.prototype = {
-	
 	init: function(){
 		this.init_physics();
-		this.init_netView();
+		this.init_weapons();
 	},
 	
-	init_netView: function(){
-		
+	init_weapons: function(){
+		this.weapons.push(en.res.weapon.PlasmaGun);
 	},
 	
 	init_physics: function(){
@@ -12356,14 +12768,24 @@ en.Stage.prototype = {
 	 * description: add a object this stage
 	 */
 	insertObject: function(object){
-		object.id = this.count++;
+		object.id = object.id || 1000+this.count;
+		this.count++;
+		
+		if(object.netSynch)
+			this.deltaObjects.push(object.id);
+		
+		console.log("Inserting object of type: ", object.type);
+		
 		this.objects.add(object.type, object.id, object);
 		object.stage = this;
 		object.init();
-		this.call("object/insert", object);
+		this.call("objectInsert", object);
 	},
 	
-	removeObject: function(object){
+	removeObject: function(object, method){
+		if(object.netSynch)
+			this.deltaRemove.push({id: object.id, method: method || 0});
+		
 		this.physics_world.DestroyBody(object.body);
 		this.objects.remove(object.id);
 	},
@@ -12394,6 +12816,7 @@ en.Stage.prototype = {
 	update: function(mult, step){
 		
 		//en.call("stage/begin/update", mult);
+		
 		var group = this.objects.index;
 		for(var i = 0, l = group.length; i < l; ++i){
 			var obj = this.objects.get(group[i]);
@@ -12409,9 +12832,46 @@ en.Stage.prototype = {
 			}
 		}
 		
-		this.physics_world.Step(1 / 60, 10, 10);
+		
+/*
+		 var newTime = Date.now();
+         var frameTime = newTime - this.currentTime;
+         if ( frameTime > 250 )
+              frameTime = 250;	  // note: max frame time to avoid spiral of death
+         this.currentTime = newTime;
+
+         this.accumulator += frameTime;
+
+         while ( this.accumulator >= this.dt )
+         {
+			  this.physics_world.Step(1/60, 8, 8);
+              this.t += this.dt;
+              this.accumulator -= this.dt;
+         }
+
+        var alpha = this.accumulator / this.dt;
+		*/
+	
+		
+		
+		var timeStep = 1000/30;
+		
+		var dateNow = Date.now();
+		
+		this.deltaTime = dateNow-this.lastUpdate;
+		this.lastUpdate = dateNow;
+		
+		this.t += this.deltaTime;
+
+		this.frameTime += this.deltaTime;
+		while(this.frameTime > 0){
+			var dTime = Math.min(this.deltaTime, timeStep);
+			this.physics_world.Step(dTime/1000, 8, 8);
+			this.frameTime -= dTime;
+		}
+		
 		this.physics_world.ClearForces();
-		this.lastUpdate = Date.now();
+
 	/*
 		if(this.s++ == 50){
 			console.log(this.objects.index.length);
@@ -12421,7 +12881,7 @@ en.Stage.prototype = {
 		//en.call("stage/end/update", mult);
 	},
 	
-	setState: function(state){
+	setStateZZZZZZZZ: function(state){
 		this.name = state.name || this.name;
 		
 		this.resetState();
@@ -12442,21 +12902,105 @@ en.Stage.prototype = {
 		}
 	},
 	
+	setFullState: function(state){
+		this.t = state.time;
+		
+		for(var i in state){
+			if(typeof en.getClass(i) == "function"){
+				var objs = state[i];
+				for(var j = 0; j < objs.length; j++){
+					this.insertObject(new (en.getClass(i))(objs[j]));
+				}
+			}
+		}
+	},
+	
+	setState: function(state){
+		var deltaT = this.deltaT = this.t - state.time;
+		
+		this.serverDT = deltaT/this.deltaTime;
+		
+		//console.log(this.serverDT);
+
+		//this.t = state.time - deltaT;
+
+		for(var i in state){
+			if(typeof en.getClass(i) == "function"){
+				var objs = state[i];
+				for(var j = 0; j < objs.length; j++){
+					var obj = this.objects.get(objs[j].id);
+					if(obj){
+						obj.setState(objs[j]);
+						obj.setAwake();
+					}else console.log("object ", objs[j].id, " doesn't exist client side");
+				}
+			}
+		}
+		
+		
+		if(state.remove){
+			for(var i = 0; i < state.remove.length; ++i){
+				var dr = state.remove[i];
+				var obj = this.objects.get(dr.id);
+				if(obj){
+					obj.destroy_queue = true;
+					console.log(obj.id, "destroy queue");
+				}else
+					console.log("Object removed doesn't exist");
+			}
+		}
+	},
+	
 	getState: function(){
-		var group = this.objects.index;
+		var state = {
+			time: this.t | 0,
+			remove: this.deltaRemove,
+		};
+		
+		var indexes = this.objects.index;//this.objects.getGroup("awake");
+		
+		for(var i = 0; i < indexes.length; i++){
+			var obj = this.objects.get(indexes[i]);
+			if(obj.netSynch){
+				if(!state[obj.type])
+					state[obj.type] = [];
+				state[obj.type].push(obj.getState());
+			}
+		}
+		
+		this.deltaRemove = [];
+		
+		return state;
+	},
+	
+	stateBuild: function(group, reset){
+		var state = {
+			name: "test",
+			time: this.t | 0,
+			reset: reset,
+		};
+		
 		for(var i = 0, l = group.length; i < l; ++i){
 			var obj = this.objects.get(group[i]);
 			if(obj.netSynch){
+				if(!state[obj.type])
+					state[obj.type] = [];
 				
+				state[obj.type].push(obj.getFullState());
 			}
 		};
+		
+		return state;
+	},
+	
+	getDeltaState: function(){
+		var state = this.stateBuild(this.deltaObjects, false);
+		this.deltaObjects = [];
+		return state;
 	},
 	
 	getFullState: function(){
-		
-		var state;
-		
-		return state;
+		return this.stateBuild(this.objects.index, true);
 	},
 };en.Weapon = function(options){
 	options = en.utils.defaultOpts({
@@ -12497,12 +13041,12 @@ en.Weapon.prototype = {
 	},
 	
 	fire_bullet: function(owner, position, angle, opt){
-		opt.position = position.getRotation(angle-Math.PI/2, 0, 2.5);
-		opt.velocity = owner.body.GetLinearVelocity();
-		opt.rotation = angle;
-		opt.owner = owner;
-
 		if((en.lastFrameTime - this.lastfire) > this.firerate){
+			opt.position = position.getRotation(angle-Math.PI/2, 0, 2.5);
+			opt.velocity = owner.body.GetLinearVelocity();
+			opt.rotation = angle;
+			opt.owner = owner;
+			
 			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
 			this.lastfire = en.lastFrameTime;
 		}
@@ -12649,7 +13193,7 @@ en.resources.define("spaceship", {
 			],
 		},
 }, function(content, callback){
-	callback("ship", content);
+	callback("spaceship", content);
 });
 en.resources.define("weapon", {
 		name: "default",
@@ -12662,11 +13206,13 @@ en.resources.define("weapon", {
 		projectile: "deafult",
 }, function(content, callback){
 	callback("weapon", content);
-});en.resources.add("ship", "Fighter", {
-	name: "default",
+});en.resources.add("spaceship", "Fighter", {
+	name: "Fighter",
 	type: "Spaceship",
+	netSynch: true,
+	synchStep: true, 
 	images: {
-		ship: "ships/TestSpaceShip",
+		ship: "ship_fighter",
 		shield: "shield",
 	},
 	
@@ -12679,47 +13225,90 @@ en.resources.define("weapon", {
 		thrust: "ThrustEffect",
 		explosion: "DefaultExplosion",
 	},
-
-	speed_forward: 1000,
-	speed_backward: 100,
+	
+	material: "spaceship_hull",
+	
+	size: 2,
 	mass: 12,
+	categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
+	maskBits: en.utils.vars.COLLISION_MASKS.PLAYER,
+
+	speed_forward: 400,
+	speed_backward: 100,
+	thrust: 15,
 	decay: .99,
 	turnSpeed: 0.45,
-	size: 2,
-
+	turning: 0,
 	health: 100,
+	maxHealth: 100,
 	shields: 100,
-	shield_radius: 3.5,
+	maxShields: 100,
+	shield_radius: 2.1,
 	shield_recharge_time: 10,
 	shield_recharge_frequency: 5,
+
+	boostForce: 700,
+	boostTime: 2000,
+	boostRecharge: 3000,
 	
+	//KEY DATA
+	
+	firing: false,
+	boosting: false,
+	thrusting: 0,
+	turning_left: false,
+	turning_right: false,
+	weapon: 0,
+	
+	//END KEY Data
+
 	weapon_spots: {
-		front: {
-			x: 0,
-			y: 2,
+		special: {
+			name: "special",
+			spots: [],
 		},
-		sideRight: {
-			x: 1.2,
-			y: 2.5,
+		
+		secondary:{
+			name: "secondary",
+			spots: [
+				{
+					angle: 0,
+					x: 0,
+					y: 2,
+				}
+			],
 		},
-		sideLeft: {
-			x: -1.2,
-			y: 2.5,
-		},
+		primary: {
+			name: "primary",
+			spots: [
+				{
+					angle: 0.1,
+					x: 1.2,
+					y: 2.5,
+				},
+				{
+					angle: -0.1,
+					x: -1.2,
+					y: 2.5,
+				}
+			],
+		}
 	},
 	
 	weapon_bonus: {
 		firerate: 1.0,
-		clip: 1.0,
-		ammo: 1.0,
 		recoil: 1.0,
 	},
-});en.resources.add("weapon", "default", {
-		name: "default",
+});en.resources.add("weapon", "PlasmaGun", {
+		name: "PlasmaGun",
+		material: "weapon_plasmagun",
 		type: "Weapon",
-		class: "medium",
+		class: "primary",
+		price: 500,
+		level: 0,
 		firerate: 150,
 		recoil: 3,
+		spread_angle: 0,
 		ammo: -1,
 		clip: -1,
 		projectile: "deafult",
@@ -12737,7 +13326,7 @@ en.resources.define("weapon", {
 	size_x: 0.7,
 	size_y: .2,
 	
-	damage: 40,
+	damage: 7,
 	
 	explosion: {
 		explode_range_limit: true,
@@ -12791,17 +13380,24 @@ var client = {
 };
 
 client.init = function(){
+	client.hud.deployment.init();
+	
+	
+	//client.hud.deployment.show();
+	
+
 	client.eventsInit();
 	client.stage.init();
 	client.network.init();
-	//client.hud.deployment.show();
-	
+
 	client.setLogin();
 	
 
 	var stage = this.Stage = new en.Stage({
 		name: "Main",
 	});
+
+	//return false;
 
 	/*
 	for(var i = 0; i < 20; ++i){
@@ -12810,9 +13406,9 @@ client.init = function(){
 	*/
 
 	en.addStage(stage);
-	
-	
-	
+
+	client.start();
+
 	/*
 	client.stage.init();
 	client.player.init();
@@ -12829,12 +13425,6 @@ client.handleLoginButton = function(){
 		password = $("#password").val();
 		
 	client.network.login(username, password);
-	
-	/*
-	client.gui.login.hide();
-	client.player.init();
-	client.start();
-	*/
 	
 	return false;
 };
@@ -12859,12 +13449,37 @@ client.stop = function(){
 	client.running = false;
 };
 
+client.keyListeners = [
+	en.utils.vars.KEY.ARROW_UP,
+	en.utils.vars.KEY.ARROW_DOWN,
+	en.utils.vars.KEY.ARROW_RIGHT,
+	en.utils.vars.KEY.ARROW_LEFT,
+	en.utils.vars.KEY.X,
+	en.utils.vars.KEY.SPACE,
+];
+
+client.keyAboveChange = function(){
+	client.player.keyChange();
+};
+
 client.keyDownListener = function(ev){
+	
+	if(!client.keys[ev.keyCode] && client.keyListeners.indexOf(ev.keyCode) > -1){
+		client.keys[ev.keyCode] = true;
+		client.keyAboveChange();
+	}else
 	client.keys[ev.keyCode] = true;
+	
 };
 
 client.keyUpListener = function(ev){
-	client.keys[ev.keyCode] = false;
+	if(client.keys[ev.keyCode] && client.keyListeners.indexOf(ev.keyCode) > -1){
+		client.keys[ev.keyCode] = false;
+		client.keyAboveChange();
+	}else
+		client.keys[ev.keyCode] = false;
+	
+	
 };
 
 client.eventsInit = function(){
@@ -13024,7 +13639,7 @@ client.hud.progbar = function(id){
 
 client.hud.progbar.prototype = {
 	set: function(percent){
-		this.value = percent <= 100 ? percent : 100;
+		this.value = percent <= 100 ? (percent > 0 ? percent : 0) : 100;
 		$(this.id + ' > .completed-bar').width(this.value+"%");
 		$(this.id + ' > .status-bar-text > .bar-value').text(this.value);
 	},
@@ -13034,6 +13649,14 @@ client.hud.progbar.prototype = {
 	},
 };
 
+client.hud.show = function(){
+	$("#hud").show();
+};
+
+client.hud.hide = function(){
+	$("#hud").hide();
+};
+
 client.hud.healthBar = new client.hud.progbar("health-bar");
 client.hud.shieldBar = new client.hud.progbar("shield-bar");
 client.hud.energyBar = new client.hud.progbar("energy-bar");
@@ -13041,13 +13664,202 @@ client.hud.energyBar = new client.hud.progbar("energy-bar");
 client.hud.deployment = {
 	init: function(){
 		$("#deploy-button").click(client.player.deploy);
+		$("#deploy-menu > ul > li").click(function(){
+			client.hud.deployment.setTab($(this).index());
+		});
+		
+		this.loadImages();
+		this.init_renderer();
+		this.init_spaceship();
 	},
 	
+	loadImages: function(){
+		
+		this.tempMaterials = {};
+		
+		var itemsLists = [
+			en.res.spaceship,
+			en.res.weapon
+		];
+		
+		for(var i in itemsLists){
+			for(var j in itemsLists[i]){
+				var src = en.resources.get("material", en.getRes(itemsLists[i][j]).material).map.sourceFile;
+				
+				this.tempMaterials[en.getRes(itemsLists[i][j]).material] = new THREE.MeshLambertMaterial({
+            		map: THREE.ImageUtils.loadTexture(src)
+       		 	});
+			}
+		}
+
+	},
+	
+	init_renderer: function(){
+		var height = $("#main-display").height(),
+			width  = $("#main-display").width();
+		
+		var camera = this.camera = new THREE.PerspectiveCamera( 45, width / height, 1, 5000 );
+		camera.position.z = 400;
+	
+		var scene = this.scene = new THREE.Scene();
+		
+		var ambient = new THREE.AmbientLight( 0x573311);
+			scene.add( ambient );
+	
+		var directionalLight = new THREE.DirectionalLight( 0xffeedd );
+			directionalLight.position.set( 0, 0, 100 ).normalize();
+		scene.add( directionalLight );
+		
+		this.spaceship = new THREE.Object3D();
+		this.spaceship.rotation.z = Math.PI/2;
+		scene.add(this.spaceship);
+		
+		var renderer = this.renderer = new THREE.WebGLRenderer();
+		renderer.setClearColorHex( 0x000000, 1 );
+		renderer.setSize(width, height);
+		renderer.autoClear = false;
+		
+		var el = document.getElementById("main-display");
+		el.appendChild(renderer.domElement);
+	},
+	
+	init_spaceship: function(){
+		var cdata = client.player.data;
+		
+		//var material = en.resources.get("material", cdata.material);
+		
+		var material = this.tempMaterials[cdata.material];
+		
+		var geometry = new THREE.PlaneGeometry(cdata.size*en.scale*2, cdata.size*en.scale*2);
+		
+		this.mesh_hull = new THREE.Mesh(geometry, material);
+		
+		this.spaceship.add(this.mesh_hull);
+	},
+
 	show: function(){
 		$("#deployment").show();
+		this.setTab(0);
+		this.render();
 	},
+	
+	setTab: function(tab){
+		$("#deploy-menu > ul > li.active").removeClass("active");
+		$("#deploy-menu > ul > li").eq(tab).addClass("active");
+		
+		return false; //return, not done below yet!
+		
+		switch(tab){
+			case 0:
+				this.fillTab(en.res.spaceship);
+			break;
+			case 1:
+				this.fillTab(en.res.weapon, "primary");
+			break;
+			case 2:
+				this.fillTab(en.res.weapon, "secondary");
+			break;
+			case 3:
+				this.fillTab(en.res.weapon, "special");
+			break;
+		}
+	},
+	
+	fillTab: function(itemList, clss){
+		$("#ship-items > ul").empty();
+		
+		var selected = 0;
+		var cdata = client.player.data;
+		
+		var c = -1;
+		
+		for(var i in itemList){
+			c++;
+			var res = en.getRes(itemList[i]);
+			
+			if(clss && res.class != clss)
+				continue;
+			
+			var material = en.resources.get("material", res.material);
+			var imgsrc = material.map.image.src;
+	
+			var status = "";
+	
+			if(clss == "primary" || clss == "secondary" || clss == "special"){
+				if(cdata[clss] == c){
+					status = "selected";
+				}else if(cdata.weapons_unlocked.indexOf(c) > -1){
+					status = "available";
+				}else if(cdata.level >= res.level){
+					status = "buyable";
+				}else{
+					status = "locked";
+				}
+			}else{
+				if(cdata.hull == c){
+					status = "selected";
+				}else if(cdata.hulls_unlocked.indexOf(c) > -1){
+					status = "available";
+				}else if(cdata.level >= res.level){
+					status = "buyable";
+				}else{
+					status = "locked";
+				}
+			}
+	
+	
+			var htmlc = '<li class="' + status + '">';
+			
+			htmlc += '<img src="'+imgsrc+'" />';
+			htmlc += '<div>';
+			
+			switch(status){
+				case "selected":
+					htmlc += 'Selected';
+				break;
+				case "available":
+					htmlc += 'Available';
+				break;
+				case "buyable":
+					htmlc += '<span class="price">' + res.price + '</span> points';
+				break;
+				case "locked":
+					htmlc += 'Level <span class="required_level">' + res.level + '</span> required';
+				break;
+			}
+			
+            htmlc += '</div>';
+			
+			htmlc += "</li>";
+			
+			$("#ship-items > ul").append(htmlc);
+			
+			$("#ship-items > ul > li").click(function(){
+				client.hud.deployment.selectItem($(this).index());
+			});
+			
+		}
+	},
+	
+	selectItem: function(){
+		this.render();
+	},
+	
 	hide: function(){
 		$("#deployment").hide();
+	},
+	
+	color_changed: function(){
+		this.mesh_hull.material.color.setHex(client.player.data.color);
+		this.render();
+	},
+	
+	render: function(){
+		var cdata = client.player.data;
+		this.mesh_hull.material = this.tempMaterials[cdata.material];
+		this.mesh_hull.material.color.setHex(cdata.color);
+		
+		this.renderer.render(this.scene, this.camera);
 	},
 };client.network = {
 	client: {},
@@ -13061,7 +13873,7 @@ client.network.init = function(){
 
 client.network.connect = function(onConnected){
 	if(!this.client._socket || this.client._socket.readyState != 1)
-		this.client = new BinaryClient('ws://127.0.0.1:1337');
+		this.client = new BinaryClient('ws://'+window.location.hostname+':1337');
 		
 	this.client.on('open', onConnected);
 	this.client.on('stream', client.network.onStream);
@@ -13090,6 +13902,38 @@ client.network.login = function(username, password){
 
 client.network.streamListeners = [];
 
+client.network.streamListeners[en.metas.state] = function(stream){
+	client.network.stream = stream;
+	
+	stream.on('data', function(buffer){
+		var data = en.readBufferToData(buffer);
+		switch(data._sid){
+			case en.structID.stageFullStateSpaceship:
+				client.player.setData(data);
+				client.player.deployMenu();
+			break;
+			case en.structID.stageFullState:
+				client.Stage.setFullState(data);
+			break;
+			case en.structID.serverDeployPlayer:
+				client.player.onDeploy(data.id);
+			break;
+			case en.structID.stageState:
+				client.Stage.setState(data);
+			break;
+		}
+
+	});
+};
+
+client.network.deploy = function(data){
+	client.network.stream.write(en.buildBuffer(en.structID.deployPlayer, data));
+};
+
+client.network.sendClientData = function(data){
+	client.network.stream.write(en.buildBuffer(en.structID.clientData, data));
+};
+
 client.network.streamListeners[en.metas.message] = function(stream){
 	stream.on('data', function(buffer){
 		var data = en.readBufferToData(buffer);
@@ -13097,76 +13941,110 @@ client.network.streamListeners[en.metas.message] = function(stream){
 	});
 };
 
-client.network.streamListeners[en.metas.gameState] = function(){
-	stream.on('data', function(buffer){
-		var data = en.readBufferToData(buffer);
-		
-	});
-};
-
 client.network.onStream = function(stream, meta){
-	
 	if(typeof client.network.streamListeners[meta] == "function")
 		client.network.streamListeners[meta](stream);
 };client.player = {
-	pl: {},
+	pl: null,
+	data: {
+		points: 421,
+		level: 24,
+		xp: 24,
+		
+		material: "spaceship_hull",
+		
+		color: 0x00A5FF,
+		
+		hull: 0,
+		hulls_unlocked: [0],
+		
+		primary: 0,
+		secondary: 0,
+		special: 0,
+		
+		size: 2,
+		
+		weapons_unlocked: [0],
+		
+		
+	},
+};
+
+client.player.setData = function(playerData){
+	this.data = playerData;
 };
 
 client.player.init = function(player){
-	client.player.set(new (en.getClass("Player"))());
-	client.Stage.insertObject(client.player.get());
+	client.player.set(new (en.getClass("Player"))(player || {}));
+};
+
+client.player.deployMenu = function(){
+	client.gui.login.hide();
+	client.hud.deployment.show();
 };
 
 client.player.deploy = function(){
-	client.player.set(new (en.getClass("Player"))());
-	client.Stage.insertObject(client.player.get());
+	var deployData = {
+		color: client.player.data.color,
+		hull: 1,
+		weapons: [
+			{
+				weaponID: 1,
+			}
+		]
+	}
+	
+	client.network.deploy(deployData);
+};
+
+
+client.player.onDeath = function(){
+};
+
+client.player.onDeploy = function(id){
+	var player = client.Stage.objects.get(id);
+	if(player){
+		client.hud.deployment.hide();
+		this.set(player);
+		client.hud.show();
+	}
 };
 
 client.player.set = function(Player){
 	Player.bind("_explode", function(){
-		client.hud.deployment.show();
+		client.hud.hide();
+		setTimeout(client.hud.deployment.show, 2000);
 	});
 	
-	client.player.pl = Player;
+	this.pl = Player;
 };
 
 client.player.get = function(){
 	return client.player.pl;
 };
 
+client.player.keyChange = function(){
+	if(client.player.pl){
+		this.pl.thrusting = client.keys[en.utils.vars.KEY.ARROW_UP] ? 1 : (client.keys[en.utils.vars.KEY.ARROW_DOWN] ?  2 : 0);	
+		this.pl.turning_right = client.keys[en.utils.vars.KEY.ARROW_RIGHT] || false;
+		this.pl.turning_left = client.keys[en.utils.vars.KEY.ARROW_LEFT] || false;
+		this.pl.firing = client.keys[en.utils.vars.KEY.X] || false;
+		this.pl.boosting = client.keys[en.utils.vars.KEY.SPACE] || false;
+		
+		this.pl.setAwake();
+
+		client.network.sendClientData(this.pl.getRT_data());
+		
+	};
+};
 
 client.player.update = function(){
-	if(client.keys[en.utils.vars.KEY.ARROW_UP])
-		this.pl.startThrust();
-	else
-		this.pl.stopThrust();
+	if(this.pl){
+		client.hud.energyBar.set((0.5+ 100*this.pl.boostTimeleft/this.pl.boostTime | 0));
+		client.hud.healthBar.set((0.5+ 100*this.pl.health/this.pl.maxHealth | 0));
+		client.hud.shieldBar.set((0.5+ 100*this.pl.shields/this.pl.maxShields | 0));
 		
-	if(client.keys[en.utils.vars.KEY.ARROW_DOWN])
-		this.pl.backThrust();
-		
-		
-	if(client.keys[en.utils.vars.KEY.ARROW_RIGHT])
-		if(this.pl.turning != 2)
-			this.pl.turning = 2;
-	
-	if(client.keys[en.utils.vars.KEY.ARROW_LEFT])
-		if(this.pl.turning != 1)
-			this.pl.turning = 1;
-		
-	if(!client.keys[en.utils.vars.KEY.ARROW_LEFT] && !client.keys[en.utils.vars.KEY.ARROW_RIGHT])
-		if(this.pl.turning != 0)
-			this.pl.turning = 0;
-
-	if(client.keys[en.utils.vars.KEY.X])
-		this.pl.fire();
-		
-	if(client.keys[en.utils.vars.KEY.Z])
-		explode();
-		
-	if(client.keys[en.utils.vars.KEY.SPACE])
-		this.pl.boost();
-	else
-		this.pl.stopBoost();
+	}
 };client.stage = {
 	scene: null,
 	camera: null,
@@ -13221,6 +14099,7 @@ client.stage.init = function(){
 	//ps = new client.PE(client.stage.ParticleSystem, {});
 	//ps2 = new client.PE(client.stage.ParticleSystem, {position: {x:0,y:0}});
 	
+	/*
 	client.stage.starFlow = new client.ParticleEmitter(client.stage.scene, {
 		particlesCount: 4096,
 		texture: en.resources.get("texture", "particle.1"),
@@ -13250,6 +14129,7 @@ client.stage.init = function(){
 		angle: Math.PI,
 		angle_rand: Math.PI,
 	});
+	*/
 	
 	var el = document.getElementById("stage");
 	el.appendChild(renderer.domElement);
@@ -13353,17 +14233,18 @@ client.stage.update = function(){
 	var pl = client.player.get(),
 	    cam = client.stage.camera;
 	
-	cam.rotation.z  = pl.body.GetAngle() - Math.PI/2;
-	
-	var dx = Math.cos(cam.rotation.z),
-		dy = Math.sin(cam.rotation.z);
-	
-	
-	
-	cam.position.x = pl.body.GetPosition().x* en.scale - 250 * dy;
-	cam.position.y = pl.body.GetPosition().y* en.scale + 250 * dx;
-
-	//pl.mesh.rotation.z = pl.body.GetAngle();
+	if(pl){
+		cam.rotation.z  = pl.body.GetAngle() - Math.PI/2;
+		
+		var dx = Math.cos(cam.rotation.z),
+			dy = Math.sin(cam.rotation.z);
+		
+		cam.position.x = pl.body.GetPosition().x* en.scale - 250 * dy;
+		cam.position.y = pl.body.GetPosition().y* en.scale + 250 * dx;
+	}else{
+		cam.position.x = 0;
+		cam.position.y = 0;
+	}
 
 };
 function cRand(seed){
@@ -13423,6 +14304,8 @@ THREE.Background = function(width, height){
 			new THREE.MeshLambertMaterial({color: 0xffffff,map: en.resources.get("texture", "nebula.2"),depthTest:false,blending: THREE.AdditiveBlending,transparent: true,opacity: 1.0,size:1.0,}),
 			new THREE.MeshLambertMaterial({color: 0xffffff,map: en.resources.get("texture", "planet.earth"),depthTest:false,blending: THREE.AdditiveBlending,transparent: true,opacity: 1.0,size:1.0,})
 			);
+		
+		return obj;
 		
 		var l = space_objects.length;
 		
@@ -14730,12 +15613,12 @@ client.Spaceship.prototype = {
 		
 		var mesh = this.mesh = new THREE.Object3D();
 		
-		
 		var material = en.resources.get("material", this.material),
 			geometry = new THREE.PlaneGeometry(this.size*en.scale*2, this.size*en.scale*2);
 		
 		this.meshes.hull = new THREE.Mesh(geometry, material);
 		this.meshes.hull.rotation.z = this.body.GetAngle();
+		this.meshes.hull.material.color.setHex(this.color);
 		
 		var pos = this.body.GetPosition();
 		this.mesh.position.set(pos.x*en.scale, pos.y*en.scale, 0);
@@ -14986,12 +15869,14 @@ en.resources.add("texture", "projectiles.bullet", {
 en.resources.add("texture", "shield", {
 	src: "images/shield.png",
 });
-en.resources.add("texture", "ships/TestSpaceShip", {
-	src: "images/ships/TestSpaceShip.png",
+en.resources.add("texture", "ship_fighter", {
+	src: "images/ships/fighter_ship.png",
 });en.resources.add("texture", "wall", {
 	src: "images/wall.png",
 });
-en.resources.add("material", "background", {
+en.resources.add("texture", "weapon_plasmagun", {
+	src: "images/weapons/PlasmaGun.png",
+});en.resources.add("material", "background", {
 	name: "default",
 	color: 0xffffff,
 	opacity: 1,
@@ -15052,6 +15937,14 @@ en.resources.add("material", "background.planet.earth", {
 	transparent: true,
 	blending: THREE.AdditiveBlending,
 	texture: "planet.earth",
+});en.resources.add("material", "weapon_plasmagun", {
+	name: "default",
+	color: 0xffffff,
+	opacity: 1,
+	size: 5,
+	transparent: true,
+	blending: THREE.AdditiveBlending,
+	texture: "weapon_plasmagun",
 });en.resources.add("material", "projectiles.bullet", {
 	name: "default",
 	color: 0xffffff,
@@ -15068,7 +15961,7 @@ en.resources.add("material", "background.planet.earth", {
 	size: 5,
 	transparent: true,
 	blending: THREE.AdditiveBlending,
-	texture: "ships/TestSpaceShip",
+	texture: "ship_fighter",
 });en.resources.add("material", "spaceship.shield", {
 	name: "default",
 	color: 0xffffff,

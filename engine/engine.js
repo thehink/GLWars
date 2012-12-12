@@ -22,14 +22,13 @@ var en = {
 	utils: {},
 	draw: typeof THREE == "object" ? true : false,
 	scale: 40,
-	
+	isServer: typeof module === 'undefined' ? false : true,
 	options: {
 		isServer: typeof module === 'undefined' ? false : true,
 		fps: 60,
 		spatialAreaSize: 64,
 		debug: true,
 	},
-	
 	
 	log: function(name, msg2, msg3, msg4){
 		if(en.options.debug){

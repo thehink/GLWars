@@ -19,12 +19,13 @@ var BinaryServer = require(modulesPath+'binaryjs').BinaryServer,
 		console.log("Loading resources:", Math.round(100*done/total) + "%");
 		
 		if(done/total == 1){
+			//en.extend(server.Player, en.Player);
+			server.stage.init();
 			server.start();
 	 		server.network.init();
 		}
 	});
-	 
-	 en.resources.load();
+	en.resources.load();
  };
  
  server.start = function(){
@@ -41,5 +42,5 @@ var BinaryServer = require(modulesPath+'binaryjs').BinaryServer,
 	 server.network.onFrame();
 	 
 	 if(server.isRunning)
-	 	setTimeout(server.tick, 1000/60);
+	 	setTimeout(server.tick, 1000/30);
  };

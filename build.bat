@@ -25,7 +25,7 @@ client.js + ^
 client.*.js + ^
 .\constructors\*.js + ^
 .\assets_types\*.js + ^
-.\assets\images\*.js + ^
+.\assets\textures\*.js + ^
 .\assets\materials\*.js + ^
 .\assets\prerenders\*.js + ^
 .\assets\emitters\*.js + ^

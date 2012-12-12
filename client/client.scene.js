@@ -52,6 +52,7 @@ client.stage.init = function(){
 	//ps = new client.PE(client.stage.ParticleSystem, {});
 	//ps2 = new client.PE(client.stage.ParticleSystem, {position: {x:0,y:0}});
 	
+	/*
 	client.stage.starFlow = new client.ParticleEmitter(client.stage.scene, {
 		particlesCount: 4096,
 		texture: en.resources.get("texture", "particle.1"),
@@ -81,6 +82,7 @@ client.stage.init = function(){
 		angle: Math.PI,
 		angle_rand: Math.PI,
 	});
+	*/
 	
 	var el = document.getElementById("stage");
 	el.appendChild(renderer.domElement);
@@ -184,16 +186,17 @@ client.stage.update = function(){
 	var pl = client.player.get(),
 	    cam = client.stage.camera;
 	
-	cam.rotation.z  = pl.body.GetAngle() - Math.PI/2;
-	
-	var dx = Math.cos(cam.rotation.z),
-		dy = Math.sin(cam.rotation.z);
-	
-	
-	
-	cam.position.x = pl.body.GetPosition().x* en.scale - 250 * dy;
-	cam.position.y = pl.body.GetPosition().y* en.scale + 250 * dx;
-
-	//pl.mesh.rotation.z = pl.body.GetAngle();
+	if(pl){
+		cam.rotation.z  = pl.body.GetAngle() - Math.PI/2;
+		
+		var dx = Math.cos(cam.rotation.z),
+			dy = Math.sin(cam.rotation.z);
+		
+		cam.position.x = pl.body.GetPosition().x* en.scale - 250 * dy;
+		cam.position.y = pl.body.GetPosition().y* en.scale + 250 * dx;
+	}else{
+		cam.position.x = 0;
+		cam.position.y = 0;
+	}
 
 };

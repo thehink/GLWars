@@ -35,6 +35,11 @@ server.network = {
 		this.server = BinaryServer({port: 1337});
 		this.server.on('connection', server.network.onConnect);
 		
+		
+		server.players.add(new server.Player({
+			username: "Admin",
+			password: "Admin",
+		}));
     },
 };
 
@@ -65,9 +70,9 @@ server.network.authenticate = function(buffer){
 				password = data.password;
 				
 			var player = server.players.login(username, password, this.client);
-			
 			if(player){
-				this.client.send(en.buildBuffer(en.structID.gameState, server.stage.stage.getState()));
+				player.stateStream.write(en.buildBuffer(en.structID.stageFullStateSpaceship, player.getFullState()));
+				player.stateStream.write(en.buildBuffer(en.structID.stageFullState, server.stage.stage.getFullState()));
 			}else{
 				console.log("ERROR", "USERNAME:", username);
 				this.client.send(en.buildBuffer(en.structID.message, {
@@ -80,6 +85,47 @@ server.network.authenticate = function(buffer){
 };
 
 server.network.onFrame = function(){
+	var stateBuffer = en.buildBuffer(en.structID.stageState, server.stage.stage.getState());
+	
+	var newObjects = false;
+	
+	if(server.stage.stage.deltaObjects.length > 0){
+		newObjects = true;
+		var newObjectsBuffer = en.buildBuffer(en.structID.stageFullState, server.stage.stage.getDeltaState());
+	}
+	
+	for(var i = 0; i < server.players.active.length; i++){
+		var player = server.players.getPlayer(server.players.active[i]);
+		var client = player.client;
+		
+		if(player.stateStream.writable){
+			if(newObjects)
+				player.stateStream.write(newObjectsBuffer);
+			
+			if(player.updateClientID){
+				player.stateStream.write(en.buildBuffer(en.structID.serverDeployPlayer, {id:player.id}));
+				player.updateClientID = false;
+			}
+			
+			player.stateStream.write(stateBuffer);
+				
+		}else{
+			server.players.setOffline(player);
+		}
+	}
+};
+
+server.network.onClientData = function(buffer){
+	var data = en.readBufferToData(buffer);
+	
+	switch(data._sid){
+		case en.structID.deployPlayer:
+			server.players.deploy(this.player, data);
+		break;
+		case en.structID.clientData:
+			server.players.parseClientData(this.player, data);
+		break;
+	}
 	
 };
 

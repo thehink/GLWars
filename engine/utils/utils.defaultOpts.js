@@ -1,5 +1,8 @@
 en.utils.defaultOpts = function(defaults, options){
 	for(var i in options){
+		if(typeof defaults[i] == "object"){
+			defaults[i] = en.utils.defaultOpts(defaults[i], options[i]);
+		}else
 		defaults[i] = options[i];
 	};
 	return defaults;

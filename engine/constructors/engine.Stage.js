@@ -6,28 +6,39 @@ en.Stage = function(options, state){
 		physics_world: null,
 		width: 5132/en.scale,
 		height: 5132/en.scale,
-		lastUpdate: 0,
+		weapons: [],
 		i: 0,
 		s: 0,
 	}, options);
 	
+	this.deltaObjects = [];
+	this.deltaRemove = [];
+	
+	this.lastUpdate = Date.now();
+	this.deltaTime = 0;
+	this.frameTime = 0;
+	this.lastServerUpdate = 0;
+	
+	this.currentTime = Date.now();
+	this.accumulator = 0;
+	this.dt = 1000/60;
+	this.t = 0;
+	
 	en.Base.apply(this, [options]);
-	
-	
+
 	this.init();
 	
 	if(state)this.setState(state);
 };
 
 en.Stage.prototype = {
-	
 	init: function(){
 		this.init_physics();
-		this.init_netView();
+		this.init_weapons();
 	},
 	
-	init_netView: function(){
-		
+	init_weapons: function(){
+		this.weapons.push(en.res.weapon.PlasmaGun);
 	},
 	
 	init_physics: function(){
@@ -91,14 +102,24 @@ en.Stage.prototype = {
 	 * description: add a object this stage
 	 */
 	insertObject: function(object){
-		object.id = this.count++;
+		object.id = object.id || 1000+this.count;
+		this.count++;
+		
+		if(object.netSynch)
+			this.deltaObjects.push(object.id);
+		
+		console.log("Inserting object of type: ", object.type);
+		
 		this.objects.add(object.type, object.id, object);
 		object.stage = this;
 		object.init();
-		this.call("object/insert", object);
+		this.call("objectInsert", object);
 	},
 	
-	removeObject: function(object){
+	removeObject: function(object, method){
+		if(object.netSynch)
+			this.deltaRemove.push({id: object.id, method: method || 0});
+		
 		this.physics_world.DestroyBody(object.body);
 		this.objects.remove(object.id);
 	},
@@ -129,6 +150,7 @@ en.Stage.prototype = {
 	update: function(mult, step){
 		
 		//en.call("stage/begin/update", mult);
+		
 		var group = this.objects.index;
 		for(var i = 0, l = group.length; i < l; ++i){
 			var obj = this.objects.get(group[i]);
@@ -144,9 +166,46 @@ en.Stage.prototype = {
 			}
 		}
 		
-		this.physics_world.Step(1 / 60, 10, 10);
+		
+/*
+		 var newTime = Date.now();
+         var frameTime = newTime - this.currentTime;
+         if ( frameTime > 250 )
+              frameTime = 250;	  // note: max frame time to avoid spiral of death
+         this.currentTime = newTime;
+
+         this.accumulator += frameTime;
+
+         while ( this.accumulator >= this.dt )
+         {
+			  this.physics_world.Step(1/60, 8, 8);
+              this.t += this.dt;
+              this.accumulator -= this.dt;
+         }
+
+        var alpha = this.accumulator / this.dt;
+		*/
+	
+		
+		
+		var timeStep = 1000/30;
+		
+		var dateNow = Date.now();
+		
+		this.deltaTime = dateNow-this.lastUpdate;
+		this.lastUpdate = dateNow;
+		
+		this.t += this.deltaTime;
+
+		this.frameTime += this.deltaTime;
+		while(this.frameTime > 0){
+			var dTime = Math.min(this.deltaTime, timeStep);
+			this.physics_world.Step(dTime/1000, 8, 8);
+			this.frameTime -= dTime;
+		}
+		
 		this.physics_world.ClearForces();
-		this.lastUpdate = Date.now();
+
 	/*
 		if(this.s++ == 50){
 			console.log(this.objects.index.length);
@@ -156,7 +215,7 @@ en.Stage.prototype = {
 		//en.call("stage/end/update", mult);
 	},
 	
-	setState: function(state){
+	setStateZZZZZZZZ: function(state){
 		this.name = state.name || this.name;
 		
 		this.resetState();
@@ -177,20 +236,104 @@ en.Stage.prototype = {
 		}
 	},
 	
+	setFullState: function(state){
+		this.t = state.time;
+		
+		for(var i in state){
+			if(typeof en.getClass(i) == "function"){
+				var objs = state[i];
+				for(var j = 0; j < objs.length; j++){
+					this.insertObject(new (en.getClass(i))(objs[j]));
+				}
+			}
+		}
+	},
+	
+	setState: function(state){
+		var deltaT = this.deltaT = this.t - state.time;
+		
+		this.serverDT = deltaT/this.deltaTime;
+		
+		//console.log(this.serverDT);
+
+		//this.t = state.time - deltaT;
+
+		for(var i in state){
+			if(typeof en.getClass(i) == "function"){
+				var objs = state[i];
+				for(var j = 0; j < objs.length; j++){
+					var obj = this.objects.get(objs[j].id);
+					if(obj){
+						obj.setState(objs[j]);
+						obj.setAwake();
+					}else console.log("object ", objs[j].id, " doesn't exist client side");
+				}
+			}
+		}
+		
+		
+		if(state.remove){
+			for(var i = 0; i < state.remove.length; ++i){
+				var dr = state.remove[i];
+				var obj = this.objects.get(dr.id);
+				if(obj){
+					obj.destroy_queue = true;
+					console.log(obj.id, "destroy queue");
+				}else
+					console.log("Object removed doesn't exist");
+			}
+		}
+	},
+	
 	getState: function(){
-		var group = this.objects.index;
+		var state = {
+			time: this.t | 0,
+			remove: this.deltaRemove,
+		};
+		
+		var indexes = this.objects.index;//this.objects.getGroup("awake");
+		
+		for(var i = 0; i < indexes.length; i++){
+			var obj = this.objects.get(indexes[i]);
+			if(obj.netSynch){
+				if(!state[obj.type])
+					state[obj.type] = [];
+				state[obj.type].push(obj.getState());
+			}
+		}
+		
+		this.deltaRemove = [];
+		
+		return state;
+	},
+	
+	stateBuild: function(group, reset){
+		var state = {
+			name: "test",
+			time: this.t | 0,
+			reset: reset,
+		};
+		
 		for(var i = 0, l = group.length; i < l; ++i){
 			var obj = this.objects.get(group[i]);
 			if(obj.netSynch){
+				if(!state[obj.type])
+					state[obj.type] = [];
 				
+				state[obj.type].push(obj.getFullState());
 			}
 		};
+		
+		return state;
+	},
+	
+	getDeltaState: function(){
+		var state = this.stateBuild(this.deltaObjects, false);
+		this.deltaObjects = [];
+		return state;
 	},
 	
 	getFullState: function(){
-		
-		var state;
-		
-		return state;
+		return this.stateBuild(this.objects.index, true);
 	},
 };

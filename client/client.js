@@ -22,17 +22,24 @@ var client = {
 };
 
 client.init = function(){
+	client.hud.deployment.init();
+	
+	
+	//client.hud.deployment.show();
+	
+
 	client.eventsInit();
 	client.stage.init();
 	client.network.init();
-	//client.hud.deployment.show();
-	
+
 	client.setLogin();
 	
 
 	var stage = this.Stage = new en.Stage({
 		name: "Main",
 	});
+
+	//return false;
 
 	/*
 	for(var i = 0; i < 20; ++i){
@@ -41,9 +48,9 @@ client.init = function(){
 	*/
 
 	en.addStage(stage);
-	
-	
-	
+
+	client.start();
+
 	/*
 	client.stage.init();
 	client.player.init();
@@ -60,12 +67,6 @@ client.handleLoginButton = function(){
 		password = $("#password").val();
 		
 	client.network.login(username, password);
-	
-	/*
-	client.gui.login.hide();
-	client.player.init();
-	client.start();
-	*/
 	
 	return false;
 };
@@ -90,12 +91,37 @@ client.stop = function(){
 	client.running = false;
 };
 
+client.keyListeners = [
+	en.utils.vars.KEY.ARROW_UP,
+	en.utils.vars.KEY.ARROW_DOWN,
+	en.utils.vars.KEY.ARROW_RIGHT,
+	en.utils.vars.KEY.ARROW_LEFT,
+	en.utils.vars.KEY.X,
+	en.utils.vars.KEY.SPACE,
+];
+
+client.keyAboveChange = function(){
+	client.player.keyChange();
+};
+
 client.keyDownListener = function(ev){
+	
+	if(!client.keys[ev.keyCode] && client.keyListeners.indexOf(ev.keyCode) > -1){
+		client.keys[ev.keyCode] = true;
+		client.keyAboveChange();
+	}else
 	client.keys[ev.keyCode] = true;
+	
 };
 
 client.keyUpListener = function(ev){
-	client.keys[ev.keyCode] = false;
+	if(client.keys[ev.keyCode] && client.keyListeners.indexOf(ev.keyCode) > -1){
+		client.keys[ev.keyCode] = false;
+		client.keyAboveChange();
+	}else
+		client.keys[ev.keyCode] = false;
+	
+	
 };
 
 client.eventsInit = function(){

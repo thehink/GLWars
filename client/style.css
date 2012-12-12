@@ -289,13 +289,59 @@ input:-ms-input-placeholder {
 	background:#111;
 }
 
+#ship-display > div{
+	
+}
+
+#ship-display > #left-stats{
+	float:left;
+}
+
+
+#ship-display > #right-stats{
+	position:absolute;
+	right:0;
+	top:0;
+}
+
+#ship-display > #main-display{
+	width: 250px;
+	height: 250px;
+	margin:0 auto;
+}
+
+#ship-display > div > dl{
+	margin:10px 10px;
+	padding:0;
+}
+
+#ship-display > div > dl > dt{
+	font-size:16px;
+	font-weight:bold;
+	color:#0077FF;
+	/*text-shadow:rgba(0,60,130,.5) -1px -1px;*/
+}
+#ship-display > div > dl > dt.green{
+	color:#0C0;
+}
+
+#ship-display > div > dl > dt.red{
+	color:#800000;
+}
+
+#ship-display > div > dl > dd{
+	margin:0 0 0 20px;
+	text-shadow:rgba(255,255,255,0.05) 1px 1px;
+	font-size:18px;
+}
+
 #ship-items{
 	position:relative;
 	display:block;
 	border-top:1px solid #555;
 	min-height:50px;
 	background:#222;
-	padding:20px 0;
+	padding:10px 0;
 }
 
 #ship-items > ul{
@@ -308,7 +354,7 @@ input:-ms-input-placeholder {
 	position:relative;
 	display:block;
 	background:#111;
-	margin: 0 20px;
+	margin: 10px 20px;
 	height:120px;
 	width:120px;
 	border-radius:3px;
@@ -324,6 +370,10 @@ input:-ms-input-placeholder {
 	box-shadow:rgba(0, 200, 255, 0.5) 0 0 7px;
 }
 
+#ship-items > ul > li.available{
+	box-shadow:rgba(0, 200, 255, 0.5) 0 0 7px;
+}
+
 #ship-items > ul > li.selected{
 	box-shadow:rgba(0, 200, 100, 0.9) 0 0 10px;
 }
@@ -333,6 +383,47 @@ input:-ms-input-placeholder {
 	opacity:0.9;
 	cursor:default;
 }
+
+#ship-items > ul > li > img{
+	position:relative;
+	display:block;
+	margin:5%;
+	width:90%;
+	height:90%;
+	-webkit-transform:rotate(-90deg);
+}
+
+#ship-items > ul > li > div{
+	position:absolute;
+	bottom:0;
+	width:100%;
+	text-align:center;
+	text-shadow:rgba(255,255,255,0.05) 1px 1px;
+	background:rgba(0,0,0,.4);
+	-webkit-border-bottom-right-radius: 3px;
+-webkit-border-bottom-left-radius: 3px;
+-moz-border-radius-bottomright: 3px;
+-moz-border-radius-bottomleft: 3px;
+border-bottom-right-radius: 3px;
+border-bottom-left-radius: 3px;
+}
+
+#ship-items > ul > li.selected > div{
+	background:rgba(0,255,0,.1);
+}
+
+#ship-items > ul > li.available > div{
+	background:rgba(0,200,255,.1);
+}
+
+#ship-items > ul > li.buyable > div{
+	background:rgba(255,238,0,.1);
+}
+
+#ship-items > ul > li.locked > div{
+	background:rgba(255,0,0,.1);
+}
+
 
 #deploy-menu{
 	position:relative;
@@ -475,11 +566,13 @@ input:-ms-input-placeholder {
 	border-top: 1px solid #00A1FF;
 	background:#006FB0;
 	border-radius:4px;
+	/*
 	-webkit-transition: width 0.5s ease-in-out;
 	-ms-transition: width 0.5s ease-in-out;
 	-moz-transition: width 0.5s ease-in-out;
 	-o-transition: width 0.5s ease-in-out;
 	transition: width 0.5s ease-in-out;
+	*/
 }
 
 

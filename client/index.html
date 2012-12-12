@@ -4,10 +4,12 @@
 			<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 			<title>SpaceWar</title>
 			<link type="text/css" rel="stylesheet" href="style.css" />
+            <link type="text/css" rel="stylesheet" href="css/colorpicker.css" />
 			<script type="text/javascript" src="lib/jquery-1.7.2.min.js"></script>
-			<script type="text/javascript" src="lib/three.js"></script>
+			<script type="text/javascript" src="lib/three.r53.js"></script>
 			<script type="text/javascript" src="lib/webaudio.js"></script>
 			<script type="text/javascript" src="lib/Stats.js"></script>
+            <script type="text/javascript" src="lib/colorpicker.js"></script>
 			<script type="text/javascript" src="client.build.js"></script>
             <script src="http://cdn.binaryjs.com/0/binary.js"></script>
 			<script id="fragment_shader_pass_1" type="x-shader/x-fragment">
@@ -404,19 +406,59 @@
 <section id="deployment">
 	<div id="ship-display">
     	<div id="left-stats">
-        	
+        	<dl>
+                <dt>Username: </dt>
+                <dd>username</dd>
+                <dt>Level: </dt>
+                <dd>0</dd>
+                <dt>Points: </dt>
+                <dd>0</dd>
+                <dt class="green">Kills: </dt>
+                <dd>0</dd>
+                <dt class="red">Deaths: </dt>
+                <dd>0</dd>
+            </dl>
         </div>
         <div id="main-display">
+        	<div class="preview"></div>
         </div>
         <div id="right-stats">
+        	<dl>
+            	<dt>Health: </dt>
+                <dd><meter min="0" max="1000" value="100"></meter></dd>
+                <dt>Shields: </dt>
+                <dd><meter min="0" max="1000" value="100"></meter></dd>
+            	<dt>Speed: </dt>
+                <dd><meter min="0" max="1000" value="100"></meter></dd>
+                <dt>Turnrate: </dt>
+                <dd><meter min="0" max="1000" value="200"></meter></dd>
+                <dt>Turnrate: </dt>
+                <dd><meter min="0" max="1000" value="200"></meter></dd>
+            </dl>
         </div>
     </div>
     <div id="ship-items">
     	<ul>
-        	<li class="available selected"></li>
-            <li class="available"></li>
-            <li class="buyable">  </li>
-            <li class="locked">   </li>
+        	<li class="selected">
+            	<div>
+                	Selected
+                </div>
+            </li>
+            <li class="available">
+            	<div>
+                	Available
+                </div>
+            </li>
+            <li class="buyable">
+            	<div>
+                	<span class="price">512</span> points
+                </div>
+            </li>
+            <li class="locked">
+            	<div>
+                	Level <span class="required_level">5</span> required
+                </div>
+            </li>
         </ul>
     </div>
     
@@ -425,7 +467,7 @@
         	<li class="active">Hull</li>
             <li>Primary Weapon</li>
             <li>Secondary Weapon</li>
-            <li>Extra Weapon</li>
+            <li>Special Weapon</li>
             <li id="deploy-button" class="launch-button">Launch</li>
         </ul>
         
@@ -471,6 +513,19 @@
   </div>
   
 </section>
+
+<div class="colorpicker" style="display:none">
+                <canvas id="picker" var="1" width="300" height="300"></canvas>
+
+                <div class="controls">
+                    <div><label>R</label> <input type="text" id="rVal" /></div>
+                    <div><label>G</label> <input type="text" id="gVal" /></div>
+                    <div><label>B</label> <input type="text" id="bVal" /></div>
+                    <div><label>RGB</label> <input type="text" id="rgbVal" /></div>
+                    <div><label>HEX</label> <input type="text" id="hexVal" /></div>
+                </div>
+            </div>
+
 
 <!--
 <footer> </footer>

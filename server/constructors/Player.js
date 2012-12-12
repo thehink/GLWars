@@ -14,10 +14,5 @@ server.Player = function(options){
 };
 
 server.Player.prototype = {
-	getKeyData: function(data){
-		
-	},
-	
-};
 
-en.extend(server.Player, en.Player);
+};

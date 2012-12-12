@@ -12,8 +12,13 @@ en.Projectile = function(options){
 		range: 10,							//range projectile can travel
 		rotation: Math.PI,						//(degrees)which direction is the projectile going
 		
-		size_x: 0.3,
+		size_x: 0.1,
 		size_y: 0.1,
+		
+		position: {
+			x: 0,
+			y: 0
+		},
 		
 		damage: 2,
 		
@@ -67,11 +72,14 @@ en.Projectile.prototype = {
 			
 		body_def.type = Box2D.Dynamics.b2Body.b2_dynamicBody;
 		body_def.angle = this.rotation;
+
 		body_def.position.x = this.position.x;
 		body_def.position.y = this.position.y;
 	
 		fix_def.filter.categoryBits = this.categoryBits;
 		fix_def.filter.maskBits = this.maskBits;
+		fix_def.filter.groupIndex = -this.owner.id;
+		
 		fix_def.shape = new Box2D.Collision.Shapes.b2PolygonShape(this.size);
 		fix_def.shape.SetAsBox(this.size_x, this.size_y);
 		fix_def.density = this.density;

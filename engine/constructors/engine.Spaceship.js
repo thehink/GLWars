@@ -2,8 +2,10 @@ en.Spaceship = function(options){
 	options = en.utils.defaultOpts({
 		name: "default",
 		type: "Spaceship",
+		netSynch: true,
+		synchStep: true, 
 		images: {
-			ship: "ships/TestSpaceShip",
+			ship: "ship_fighter",
 			shield: "shield",
 		},
 		
@@ -17,6 +19,9 @@ en.Spaceship = function(options){
 			explosion: "DefaultExplosion",
 		},
 		
+		material: "spaceship_hull",
+		color: 0xffffff,
+		
 		size: 2,
 		mass: 12,
 		categoryBits: en.utils.vars.COLLISION_GROUP.PLAYER,
@@ -29,14 +34,27 @@ en.Spaceship = function(options){
 		turnSpeed: 0.45,
 		turning: 0,
 		health: 100,
+		maxHealth: 100,
 		shields: 100,
+		maxShields: 100,
 		shield_radius: 2.1,
 		shield_recharge_time: 10,
 		shield_recharge_frequency: 5,
 
 		boostForce: 700,
-		boostTime: 100,
-		boostRecharge: 100,
+		boostTime: 2000,
+		boostRecharge: 3000,
+		
+		//KEY DATA
+		
+		firing: false,
+		boosting: false,
+		thrusting: 0,
+		turning_left: false,
+		turning_right: false,
+		weapon: 0,
+		
+		//END KEY Data
 
 		weapon_spots: {
 			special: {
@@ -44,8 +62,8 @@ en.Spaceship = function(options){
 				spots: [],
 			},
 			
-			heavy:{
-				name: "heavy",
+			secondary:{
+				name: "secondary",
 				spots: [
 					{
 						angle: 0,
@@ -54,8 +72,8 @@ en.Spaceship = function(options){
 					}
 				],
 			},
-			medium: {
-				name: "medium",
+			primary: {
+				name: "primary",
 				spots: [
 					{
 						angle: 0.1,
@@ -81,8 +99,7 @@ en.Spaceship = function(options){
 	this.weapons = [];
 	this.activeWeapon = 0;
 	
-	this.boosting = false;
-	this.boostedTime = 0;
+	this.boostTimeleft = 0;
 	this.boostLock = false;
 	
 	en.Entity.apply(this, [options]);
@@ -92,17 +109,12 @@ en.Spaceship = function(options){
 en.Spaceship.prototype = {
 	
 	defaultt: function(){
-		this.addWeapon("default");
+		this.addWeapon("PlasmaGun");
 		this.setWeapon(0);
 	},
 	
-	explode: function(){
-		this.call("explode");
-		this.destroy_queue = true;
-	},
-	
 	damage: function(who, type, damage){
-
+		if(!en.isServer)return false;
 		
 		if(this.shields > 0){
 			var tmpshields = this.shields;
@@ -115,16 +127,14 @@ en.Spaceship.prototype = {
 		
 		if(this.shields < 1){
 			this.health -= damage;
-			if(this.health <= 0){
-				this.explode();
-			}
 		}
-		
+
 		this.call("_damage", who, type, damage);
 	},
 	
 	fire: function(){
 		//todo: fire weapon
+	
 		if(this.activeWeapon){
 			if(!this.body.IsAwake())this.stage.setAwake(this, true);
 			this.activeWeapon.fire(this, this.body.GetPosition(), this.body.GetAngle());
@@ -162,16 +172,20 @@ en.Spaceship.prototype = {
 		}
 	},
 	
-	startThrust: function(speed){
-		if(!this.thrusting){
-			this.thrusting = true;
-			this.stage.setAwake(this, true);
-			this.thrusting = 1;
-		}
+	thrust_forward: function(){
+		var boostForce = this.boosting ? this.boostForce : 0;
+		var xx1 = Math.cos(this.body.GetAngle())*(this.speed_forward + boostForce),
+			yy1 = Math.sin(this.body.GetAngle())*(this.speed_forward + boostForce);
+        this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
+		
 	},
 	
-	backThrust: function(){
-		this.thrusting = 2;
+	thrust_back: function(){
+		var boostForce = this.boosting ? this.boostForce : 0;
+		
+		var xx1 = -Math.cos(this.body.GetAngle())*(this.speed_backward + boostForce),
+			yy1 = -Math.sin(this.body.GetAngle())*(this.speed_backward + boostForce);
+        this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
 	},
 	
 	stopThrust: function(){
@@ -180,8 +194,10 @@ en.Spaceship.prototype = {
 	
 	boost: function(){
 		if(!this.thrusting)this.thrusting = 1;
-		if(!this.boostLock && this.boostedTime++ < this.boostTime){
+		
+		if(!this.boostLock && this.boostTimeleft > 0){
 			this.boosting = true;
+			this.boostTimeleft -= this.stage.deltaTime;
 		}else if(this.boosting){
 			this.boosting = false;
 			this.boostLock = true;
@@ -192,6 +208,12 @@ en.Spaceship.prototype = {
 	stopBoost: function(){
 		if(this.boosting)
 			this.boosting = false;
+	},
+	
+	resetState: function(){
+		this.health = this.maxHealth;
+		this.shields = this.maxShields;
+		this.boostTimeleft = this.boostTime;
 	},
 	
 	_collide: function(contact){
@@ -208,30 +230,202 @@ en.Spaceship.prototype = {
 	},
 	
 	update: function(){
-		var boostForce = this.boosting ? this.boostForce : 0;
-		
-		if(!this.boosting && this.boostedTime > 0){
-			this.boostedTime -= this.boostTime/this.boostRecharge;
-		}else if(this.boostLock)
-			this.boostLock = false;
-		
-		if(this.turning == 1){
-			this.turnLeft();
-		}else if(this.turning == 2){
-			this.turnRight();
+		if(this.health <= 0){
+			if(en.isServer)this.explode();
 		}
 		
-		if (this.thrusting == 1) {
-            var xx1 = Math.cos(this.body.GetAngle())*(this.speed_forward + boostForce),
-				yy1 = Math.sin(this.body.GetAngle())*(this.speed_forward + boostForce);
-            this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
-        }
+		if(!this.boosting && this.boostTimeleft < this.boostTime){
+			this.boostTimeleft += this.stage.deltaTime * (this.boostTime / this.boostRecharge);
+		}else if(this.boostLock && this.boostTimeleft >= this.boostTime)
+			this.boostLock = false;
 		
-		if (this.thrusting == 2) {
-            var xx1 = -Math.cos(this.body.GetAngle())*(this.speed_backward + boostForce),
-				yy1 = -Math.sin(this.body.GetAngle())*(this.speed_backward + boostForce);
-            this.body.ApplyForce(new b2Vec2(xx1, yy1), this.body.GetPosition());
-        }
+		if(this.boostTimeleft > this.boostTime)
+			this.boostTimeleft = this.boostTime;
+			
+		
+		if(this.thrusting == 1)
+			this.thrust_forward();
+		else if(this.thrusting == 2)
+			this.thrust_back();
+		
+		if(this.turning_left)
+			this.turnLeft();
+		else if(this.turning_right)
+			this.turnRight();
+
+		if(this.boosting)
+			this.boost();
+			
+		if(this.firing)
+			this.fire();
 	},
 	
+	explode: function(){
+		this.destroy_queue = true;
+	},
+	
+	destroy: function(method){
+		this.call("explode");
+		this.call("destroy");
+		this.stage.removeObject(this);
+		this.destroy_queue = false;
+	},
+	
+	getRT_data: function(){
+		var data = {
+			firing: this.firing,
+			boosting: this.boosting,
+			thrusting: this.thrusting,
+			turning_left: this.turning_left,
+			turning_right: this.turning_right,
+			weapon: 0,
+		};
+		
+		return data;
+	},
+	
+	setRT_data: function(data){
+		this.firing = data.firing;
+		this.boosting = data.boosting;
+		this.thrusting = data.thrusting;
+		this.turning_left = data.turning_left;
+		this.turning_right = data.turning_right;
+	},
+	
+	setState: function(state){
+		this.setRT_data(state.clientData);
+		
+		this.boostTimeleft = state.boostTimeleft;
+		this.health = state.health;
+		this.shields = state.shields;
+		
+		//this.bodyDiff.position.Set(state.body.position[0], state.body.position[1]);
+		//this.bodyDiff.rotation = state.body.rotation;
+		
+		  var currentVelocity = this.body.GetLinearVelocity().Copy();
+		  var currentPos = this.body.GetPosition().Copy();
+		  var positionDiff = new b2Vec2(state.body.position[0], state.body.position[1]);
+		  positionDiff.Subtract(currentPos);
+		  
+		  
+		  /*
+		  var dtx = positionDiff.x / (state.body.velocity[0]-currentVelocity.x);
+		  var dty = positionDiff.y / (state.body.velocity[1]-currentVelocity.y);
+
+		  currentPos.Set(
+		  	state.body.position[0] + (dtx*state.body.velocity[0]),
+			state.body.position[1] + (dty*state.body.velocity[0])
+		  );
+		  */
+		  
+		 
+
+		  
+		  if(positionDiff.LengthSquared() > 625){
+			  currentPos.Set(state.body.position[0], state.body.position[1]);
+		  }else{
+			  positionDiff.Multiply(0.01);
+		  	  currentPos.Add(positionDiff);
+		  }
+		
+		  
+		 
+		  
+		  var currentRotation = this.body.GetAngle(),
+			  angleDiff = state.body.rotation-this.body.GetAngle();
+
+		this.body.SetPositionAndAngle(currentPos, (angleDiff > 0.5 ? state.body.rotation : currentRotation+0.12*angleDiff));
+		this.body.SetAngularVelocity(state.body.angular_velocity);
+		this.body.SetLinearVelocity(new b2Vec2(state.body.velocity[0], state.body.velocity[1]));
+	},
+	
+	getState: function(){
+		var position = this.body.GetPosition(),
+			velocity = this.body.GetLinearVelocity(),
+			rotation = this.body.GetAngle(),
+			angular_velocity = this.body.GetAngularVelocity();
+		
+		return {
+			id: this.id,
+			health: this.health,
+			shields: this.shields,
+			boostTimeleft: this.boostTimeleft,
+			body: {
+				position: [position.x, position.y],
+				velocity: [velocity.x, velocity.y],
+				rotation: rotation,
+				angular_velocity: angular_velocity,
+			},
+			clientData: this.getRT_data(),
+		}
+	},
+
+	getFullState: function(){
+		return {
+			id: this.id,
+			name: this.name,
+			type: this.type,
+			material: this.material,
+			color: this.color,
+			
+			mass: this.mass,
+			density: this.density,
+			friction: this.friction,
+			restitution: this.restitution,
+			position: {
+				x: this.position.x,
+				y: this.position.y,
+			},
+			linear_damping: this.linear_damping,
+			angular_damping: this.angular_damping,
+			rotation: this.rotation,
+			size: this.size,
+			categoryBits: this.categoryBits,
+			maskBits: this.maskBits,
+		};
+	},
 };
+
+en.struct.extend("stageFullState", "Spaceship", [
+		["id", "Uint8", 1],
+		["type", "String"],
+		["name", "String"],
+		["material", "String"],
+		["color", "Int32", 1],
+		
+		["mass", "Float32", 1],
+		["density", "Float32", 1],
+		["friction", "Float32", 1],
+		["restitution", "Float32", 1],
+		["position", "Struct", [
+			["x", "Float32", 1],
+			["y", "Float32", 1],
+		]],
+		["linear_damping", "Float32", 1],
+		["angular_damping", "Float32", 1],
+		["rotation", "Float32", 1],
+		["size", "Float32", 1],
+		["categoryBits", "Int32", 1],
+		["maskBits", "Int32", 1],
+]);
+
+en.struct.extend("stageState", "Spaceship", [
+	  ["id", "Uint8", 1],
+	  ["health", "Int32", 1],
+	  ["shields", "Int32", 1],
+	  ["boostTimeleft", "Int32", 1],
+	  ["body", "Struct", [
+		  ["position", "Float32", 2],
+		  ["velocity", "Float32", 2],
+		  ["rotation", "Float32", 1],
+		  ["angular_velocity", "Float32", 1],
+	  ]],
+	  ["clientData", "Struct", [
+		["firing", "Bool"],
+		["boosting", "Bool"],
+		["thrusting", "Uint8", 1],
+		["turning_right", "Bool"],
+		["turning_left", "Bool"],
+		["weapon", "Uint8", 1]
+	  ]]
+]);

@@ -32,8 +32,8 @@ en.List.prototype = {
 	
 	removeFromGroup: function(group, id){
 		if(this.groups[group]){
-			var index;
-			if(index = this.index.indexOf(id)){
+			var index = this.index.indexOf(id);
+			if(index){
 				this.groups[group].splice(index, 1);
 			};
 		}

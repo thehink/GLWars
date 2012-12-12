@@ -37,12 +37,12 @@ en.Weapon.prototype = {
 	},
 	
 	fire_bullet: function(owner, position, angle, opt){
-		opt.position = position.getRotation(angle-Math.PI/2, 0, 2.5);
-		opt.velocity = owner.body.GetLinearVelocity();
-		opt.rotation = angle;
-		opt.owner = owner;
-
 		if((en.lastFrameTime - this.lastfire) > this.firerate){
+			opt.position = position.getRotation(angle-Math.PI/2, 0, 2.5);
+			opt.velocity = owner.body.GetLinearVelocity();
+			opt.rotation = angle;
+			opt.owner = owner;
+			
 			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));
 			this.lastfire = en.lastFrameTime;
 		}

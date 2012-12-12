@@ -52,5 +52,5 @@ en.resources.define("spaceship", {
 			],
 		},
 }, function(content, callback){
-	callback("ship", content);
+	callback("spaceship", content);
 });

@@ -95,12 +95,12 @@ client.Spaceship.prototype = {
 		
 		var mesh = this.mesh = new THREE.Object3D();
 		
-		
 		var material = en.resources.get("material", this.material),
 			geometry = new THREE.PlaneGeometry(this.size*en.scale*2, this.size*en.scale*2);
 		
 		this.meshes.hull = new THREE.Mesh(geometry, material);
 		this.meshes.hull.rotation.z = this.body.GetAngle();
+		this.meshes.hull.material.color.setHex(this.color);
 		
 		var pos = this.body.GetPosition();
 		this.mesh.position.set(pos.x*en.scale, pos.y*en.scale, 0);
