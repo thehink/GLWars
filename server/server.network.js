@@ -10,31 +10,9 @@ server.network = {
 	},
 	
     init: function () {
-        var port = 80;
-        server.network.server.clientFiles = new static.Server(__dirname+'\\client');
-
-        server.network.server.httpServer = http.createServer(function (request, response) {
-            request.addListener('end', function () {
-				var deny = false;
-                for(var i = 0, l= server.network.server.denyFF.length; i < l ; ++i){
-					if(request.url.match(server.network.server.denyFF[i])){
-						deny = true;
-						break;
-					}
-				}
-				if(!deny){
-                	server.network.server.clientFiles.serve(request, response);
-				}else{
-					console.log("Access Denied");
-				}
-            });
-        });
 		
-        //server.network.server.httpServer.listen(port);
-        
 		this.server = BinaryServer({port: 1337});
 		this.server.on('connection', server.network.onConnect);
-		
 		
 		server.players.add(new server.Player({
 			username: "Admin",

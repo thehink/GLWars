@@ -1,5 +1,4 @@
-var modulesPath = "./../../../nodejs/node_modules/";
-
+var modulesPath = "./nodejs/node_modules/";
 
 var static = require(modulesPath+'node-static'),
   http = require('http'),

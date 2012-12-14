@@ -1,3 +1,3 @@
-cd .\..\..\..\nodejs
-node .\..\Public\htdocs\GLWars\server.build.js
+cd .\nodejs
+node .\..\server.build.js
 pause
