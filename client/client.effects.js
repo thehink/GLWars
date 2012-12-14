@@ -18,6 +18,8 @@ client.effects.play = function(effectName, time, options){
 	effect._effectName = effectName;
 	effect.setOptions(options);
 	
+	effect.stopQueue = false;
+	
 	if(!effect.needsAllocation){
 		effect.init();
 		effect.restart();
@@ -30,6 +32,8 @@ client.effects.play = function(effectName, time, options){
 
 client.effects.stop = function(effect){
 	var i = this.playing.indexOf(effect);
+	effect.stopQueue = true;
+	
 	if(i > -1){
 		effect.pause();
 		this.playing.splice(i, 1);					    //delete from playing
@@ -37,7 +41,6 @@ client.effects.stop = function(effect){
 		this.pool[effect._effectName].push(effect);		//back to pool so it can be reused
 	}
 };
-
 
 client.effects.getEffect = function(effect){
 	if(this.pool[effect] && this.pool[effect].length > 0){
@@ -54,17 +57,17 @@ client.effects.runQueue = function(){
 client.effects.update = function(){
 	this.frame = (this.frame + 1) % 60;
 	
+	for(var i = 0; i < this.queue.length; ++i){
+		var effect = this.queue.pop();
+		effect.init();
+		effect.restart();
+		this.playing.push(effect);
+	}
+
 	for(var i = 0; i < this.playing.length; ++i){
 		var effect = this.playing[i];
-		if(--effect._playingTime == 0){
+		if(--effect._playingTime == 0 || effect.stopQueue){
 			client.effects.stop(effect);
 		}
 	}
-	
-		for(var i = 0; i < this.queue.length; ++i){
-			var effect = this.queue.pop();
-			effect.init();
-			effect.restart();
-			this.playing.push(effect);
-		}
 };

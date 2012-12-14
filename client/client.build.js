@@ -10894,6 +10894,7 @@ var en = {
 	draw: typeof THREE == "object" ? true : false,
 	scale: 40,
 	isServer: typeof module === 'undefined' ? false : true,
+	latancy: 0,
 	options: {
 		isServer: typeof module === 'undefined' ? false : true,
 		fps: 60,
@@ -10951,7 +10952,7 @@ var en = {
 };
 
 en.onFrame = function(){
-	var timeNow = (new Date()).getTime(),
+	var timeNow = Date.now(),
 		timeDiff = timeNow-en.lastFrameTime,
 		mult = 1000/timeDiff;
 		en.lastFrameTime = timeNow;
@@ -11036,6 +11037,15 @@ en.utils.options = function(that, defaults, options){
 		ARROW_LEFT: 37,
 		ARROW_RIGHT: 39,
 		SPACE: 32,
+		
+		BACKSPACE: 8,
+		TAB: 9,
+		ENTER: 13,
+		SHIFT: 16,
+		CTRL: 17,
+		CAPS: 20,
+		
+		
 		A: 65,
 		B: 66,
 		C: 67,
@@ -11675,6 +11685,14 @@ en.struct.add("stageState", [
 		]],
 ]);
 
+en.struct.add("ping", [
+	["time", "Int32", 1],
+]);
+
+en.struct.add("recPing", [
+	["time", "Int32", 1],
+]);
+
 en.struct.add("message", [
 	["type", "Uint8", 1],
 	["title", "String"],
@@ -11862,10 +11880,12 @@ en.Object = function(options){
 		size: 5,
 	}, options);
 	
+	/*
 	this.bodyDiff = {
 		position: new b2Vec2(),
 		rotation: 0,
 	},
+	*/
 	
 	en.Base.apply(this, [options]);
 };
@@ -12035,6 +12055,7 @@ en.struct.extend("stageState", "Object", [
 		netSynch: true,
 		username: "test",
 		level: 0,
+		points: 0,
 		xp: 0,
 		kills: 0,
 		deaths: 0,
@@ -12050,7 +12071,37 @@ en.struct.extend("stageState", "Object", [
 };
 
 en.Player.prototype = {
-	
+	getFullState: function(){
+		return {
+			id: this.id,
+			name: this.name,
+			type: this.type,
+			material: this.material,
+			color: this.color,
+			
+			username: this.username,
+			level: this.level,
+			points: this.points,
+			xp: this.xp,
+			kills: this.kills,
+			deaths: this.deaths,
+			
+			mass: this.mass,
+			density: this.density,
+			friction: this.friction,
+			restitution: this.restitution,
+			position: {
+				x: this.position.x,
+				y: this.position.y,
+			},
+			linear_damping: this.linear_damping,
+			angular_damping: this.angular_damping,
+			rotation: this.rotation,
+			size: this.size,
+			categoryBits: this.categoryBits,
+			maskBits: this.maskBits,
+		};
+	},
 };
 
 en.struct.extend("stageFullState", "Player", [
@@ -12058,6 +12109,14 @@ en.struct.extend("stageFullState", "Player", [
 		["type", "String"],
 		["name", "String"],
 		["material", "String"],
+		
+		["username", "String"],
+		["level", "Int32", 1],
+		["points", "Int32", 1],
+		["xp", "Int32", 1],
+		["kills", "Int32", 1],
+		["deaths", "Int32", 1],
+		
 		["color", "Int32", 1],
 		
 		["mass", "Float32", 1],
@@ -12155,6 +12214,8 @@ en.Projectile.prototype = {
 		var velX = this.speed * Math.cos(this.rotation),
 			velY = this.speed * Math.sin(this.rotation);
 
+		this.call("pre_init");
+
 		this.Create_Body();
 		this.body.SetLinearVelocity(new b2Vec2(this.velocity.x, this.velocity.y));
 		this.body.ApplyImpulse(new b2Vec2(velX, velY), this.body.GetPosition());
@@ -12208,15 +12269,13 @@ en.Projectile.prototype = {
 			fixB = contact.GetFixtureB().GetBody().GetUserData();
 		
 		
-		if(fixB)
+		if(fixB && typeof fixB.damage == "function")
 			fixB.damage(this, this.proj_type, this.damage);
 		
 		this.destroy_queue = true;
 	},
 	
 	_BeginContact: function(contact){
-		
-		
 		this.call("hit", this.body, contact);
 		this.destroy_queue = true;
 	},
@@ -12278,7 +12337,7 @@ en.Projectile.prototype = {
 		shield_recharge_frequency: 5,
 
 		boostForce: 700,
-		boostTime: 2000,
+		boostTime: 900,
 		boostRecharge: 3000,
 		
 		//KEY DATA
@@ -12541,33 +12600,37 @@ en.Spaceship.prototype = {
 		  var currentVelocity = this.body.GetLinearVelocity().Copy();
 		  var currentPos = this.body.GetPosition().Copy();
 		  var positionDiff = new b2Vec2(state.body.position[0], state.body.position[1]);
-		  positionDiff.Subtract(currentPos);
-		  
 		  
 		  /*
-		  var dtx = positionDiff.x / (state.body.velocity[0]-currentVelocity.x);
-		  var dty = positionDiff.y / (state.body.velocity[1]-currentVelocity.y);
-
-		  currentPos.Set(
-		  	state.body.position[0] + (dtx*state.body.velocity[0]),
-			state.body.position[1] + (dty*state.body.velocity[0])
-		  );
+		  positionDiff.Add({
+			 x:en.latancy*(state.body.velocity[0]/1000),
+			 y:en.latancy*(state.body.velocity[1]/1000)
+		  });
 		  */
+		  positionDiff.Subtract(currentPos);
 		  
-		 
+		  var realDiffX = positionDiff.x - currentPos.x;
+		  var realDiffY = positionDiff.y - currentPos.y;
+		  var predictedDiffX = en.latancy*state.body.velocity[0]/60;
+		  var predictedDiffY = en.latancy*state.body.velocity[1]/60;
+		  
+		  //console.log("Realdiff      : ", realDiffX, realDiffY);
+		  //console.log("Predicted diff: ", predictedDiffX, predictedDiffY);
+		  
+		  //currentPos.Add({x: predictedDiffX, y: predictedDiffY});
 
-		  
 		  if(positionDiff.LengthSquared() > 625){
 			  currentPos.Set(state.body.position[0], state.body.position[1]);
 		  }else{
 			  positionDiff.Multiply(0.01);
 		  	  currentPos.Add(positionDiff);
 		  }
-		
 		  
+		  //console.log((positionDiff.Length() * 1000 | 0)/1000);
 		 
 		  
 		  var currentRotation = this.body.GetAngle(),
+		  	  rotation = state.body.rotation + en.latancy * (state.body.angular_velocity / 60),
 			  angleDiff = state.body.rotation-this.body.GetAngle();
 
 		this.body.SetPositionAndAngle(currentPos, (angleDiff > 0.5 ? state.body.rotation : currentRotation+0.12*angleDiff));
@@ -12817,20 +12880,7 @@ en.Stage.prototype = {
 		
 		//en.call("stage/begin/update", mult);
 		
-		var group = this.objects.index;
-		for(var i = 0, l = group.length; i < l; ++i){
-			var obj = this.objects.get(group[i]);
-			if(obj){
-				if(obj.destroy_queue){
-					obj.destroy();
-				}else
-				if(obj.body.IsAwake()){
-					obj.__update();
-				}else{
-					this.objects.removeFromGroup("awake", obj.id);
-				}
-			}
-		}
+		
 		
 		
 /*
@@ -12864,6 +12914,24 @@ en.Stage.prototype = {
 		this.t += this.deltaTime;
 
 		this.frameTime += this.deltaTime;
+		
+		//-------------------------------
+		var group = this.objects.index;
+		for(var i = 0, l = group.length; i < l; ++i){
+			var obj = this.objects.get(group[i]);
+			if(obj){
+				if(obj.destroy_queue){
+					obj.destroy();
+				}else
+				if(obj.body.IsAwake()){
+					obj.__update();
+				}else{
+					this.objects.removeFromGroup("awake", obj.id);
+				}
+			}
+		}
+		//---------------------------------
+		
 		while(this.frameTime > 0){
 			var dTime = Math.min(this.deltaTime, timeStep);
 			this.physics_world.Step(dTime/1000, 8, 8);
@@ -12916,9 +12984,9 @@ en.Stage.prototype = {
 	},
 	
 	setState: function(state){
-		var deltaT = this.deltaT = this.t - state.time;
+		//var deltaT = this.deltaT = this.t - state.time;
 		
-		this.serverDT = deltaT/this.deltaTime;
+		//this.serverDT = deltaT/this.deltaTime;
 		
 		//console.log(this.serverDT);
 
@@ -13368,20 +13436,19 @@ en.extend(en.Player, en.Spaceship);var requestAnimFrame = (function(callback) {
 })();
 
 var client = {
-
 	player: {},
-	
 	width: 0,
 	height: 0,	
 	utils: {},
 	keys: [],
-	
+	players: [],
 	running: false,
 };
 
 client.init = function(){
 	client.hud.deployment.init();
-	
+
+	//client.hud.stats.show();
 	
 	//client.hud.deployment.show();
 	
@@ -13390,12 +13457,15 @@ client.init = function(){
 	client.stage.init();
 	client.network.init();
 
+
 	client.setLogin();
 	
 
 	var stage = this.Stage = new en.Stage({
 		name: "Main",
 	});
+
+	stage.bind("objectInsert", client.addPlayer);
 
 	//return false;
 
@@ -13429,11 +13499,33 @@ client.handleLoginButton = function(){
 	return false;
 };
 
+client.addPlayer = function(player){
+	if(player.type == "Player"){
+		var i = client.players.indexOf(player);
+		if(i == -1){
+			client.players.push(player);
+		}
+	}
+};
+
+client.setPlayers = function(data){
+	var players = data.Player;
+	var reset = data.reset;
+	
+	if(reset) client.players = [];
+	
+	for(var i in players){
+		client.players.push(players[i]);
+	}
+};
+
 client.GameLoop = function(){
 	en.onFrame();
 	
 	client.player.update();
 	client.stage.update();
+
+	client.network.onFrame();
 
 	if(client.running){
 		requestAnimFrame(client.GameLoop);
@@ -13455,7 +13547,8 @@ client.keyListeners = [
 	en.utils.vars.KEY.ARROW_RIGHT,
 	en.utils.vars.KEY.ARROW_LEFT,
 	en.utils.vars.KEY.X,
-	en.utils.vars.KEY.SPACE,
+	en.utils.vars.KEY.SHIFT,
+	en.utils.vars.KEY.CAPS,
 ];
 
 client.keyAboveChange = function(){
@@ -13463,10 +13556,10 @@ client.keyAboveChange = function(){
 };
 
 client.keyDownListener = function(ev){
-	
 	if(!client.keys[ev.keyCode] && client.keyListeners.indexOf(ev.keyCode) > -1){
 		client.keys[ev.keyCode] = true;
 		client.keyAboveChange();
+		ev.preventDefault(); 
 	}else
 	client.keys[ev.keyCode] = true;
 	
@@ -13476,6 +13569,7 @@ client.keyUpListener = function(ev){
 	if(client.keys[ev.keyCode] && client.keyListeners.indexOf(ev.keyCode) > -1){
 		client.keys[ev.keyCode] = false;
 		client.keyAboveChange();
+		ev.preventDefault(); 
 	}else
 		client.keys[ev.keyCode] = false;
 	
@@ -13486,7 +13580,7 @@ client.eventsInit = function(){
 	en.setClass("Projectile", client.Projectile);
 	en.setClass("Spaceship", client.Spaceship);
 	en.setClass("Player", client.Player);
-	
+
 	$("#login-form").submit(client.handleLoginButton);
 	
 	document.onkeydown = client.keyDownListener;
@@ -13542,6 +13636,8 @@ client.effects.play = function(effectName, time, options){
 	effect._effectName = effectName;
 	effect.setOptions(options);
 	
+	effect.stopQueue = false;
+	
 	if(!effect.needsAllocation){
 		effect.init();
 		effect.restart();
@@ -13554,6 +13650,8 @@ client.effects.play = function(effectName, time, options){
 
 client.effects.stop = function(effect){
 	var i = this.playing.indexOf(effect);
+	effect.stopQueue = true;
+	
 	if(i > -1){
 		effect.pause();
 		this.playing.splice(i, 1);					    //delete from playing
@@ -13561,7 +13659,6 @@ client.effects.stop = function(effect){
 		this.pool[effect._effectName].push(effect);		//back to pool so it can be reused
 	}
 };
-
 
 client.effects.getEffect = function(effect){
 	if(this.pool[effect] && this.pool[effect].length > 0){
@@ -13578,19 +13675,19 @@ client.effects.runQueue = function(){
 client.effects.update = function(){
 	this.frame = (this.frame + 1) % 60;
 	
+	for(var i = 0; i < this.queue.length; ++i){
+		var effect = this.queue.pop();
+		effect.init();
+		effect.restart();
+		this.playing.push(effect);
+	}
+
 	for(var i = 0; i < this.playing.length; ++i){
 		var effect = this.playing[i];
-		if(--effect._playingTime == 0){
+		if(--effect._playingTime == 0 || effect.stopQueue){
 			client.effects.stop(effect);
 		}
 	}
-	
-		for(var i = 0; i < this.queue.length; ++i){
-			var effect = this.queue.pop();
-			effect.init();
-			effect.restart();
-			this.playing.push(effect);
-		}
 };client.gui = {};
 
 
@@ -13661,6 +13758,47 @@ client.hud.healthBar = new client.hud.progbar("health-bar");
 client.hud.shieldBar = new client.hud.progbar("shield-bar");
 client.hud.energyBar = new client.hud.progbar("energy-bar");
 
+
+client.hud.stats = {
+	showing: false,
+	
+	show: function(){
+		if(!this.showing){
+			$("#pl-stats").show();
+			this.showing = true;
+			this.update();
+		}
+	},
+	
+	update: function(){
+		$("#pl-stats tbody").empty();
+		
+		for(var i in client.players){
+			var player = client.players[i];
+			
+			var html = '<tr>';
+				html += '<td>' + i + '</td>';
+				html += '<td>' + player.username + '</td>';
+				html += '<td>' + player.points + '</td>';
+				html += '<td>' + player.level + '</td>';
+				html += '<td>' + player.kills + '</td>';
+				html += '<td>' + player.deaths + '</td>';
+				html += '</tr>';
+			
+			$("#pl-stats tbody").append(html);
+			
+		}
+		
+	},
+	
+	hide: function(){
+		if(this.showing){
+			$("#pl-stats").hide();
+			this.showing = false;
+		}
+	},
+};
+
 client.hud.deployment = {
 	init: function(){
 		$("#deploy-button").click(client.player.deploy);
@@ -13685,7 +13823,6 @@ client.hud.deployment = {
 		for(var i in itemsLists){
 			for(var j in itemsLists[i]){
 				var src = en.resources.get("material", en.getRes(itemsLists[i][j]).material).map.sourceFile;
-				
 				this.tempMaterials[en.getRes(itemsLists[i][j]).material] = new THREE.MeshLambertMaterial({
             		map: THREE.ImageUtils.loadTexture(src)
        		 	});
@@ -13865,6 +14002,9 @@ client.hud.deployment = {
 	client: {},
 	keyPressStream: {},
 	gameStateStream: {},
+	lastPing: 0,
+	prevLatency: 0,
+	connected: false,
 };
 
 client.network.init = function(){
@@ -13907,10 +14047,12 @@ client.network.streamListeners[en.metas.state] = function(stream){
 	
 	stream.on('data', function(buffer){
 		var data = en.readBufferToData(buffer);
+		
 		switch(data._sid){
 			case en.structID.stageFullStateSpaceship:
 				client.player.setData(data);
 				client.player.deployMenu();
+				client.network.connected = true;
 			break;
 			case en.structID.stageFullState:
 				client.Stage.setFullState(data);
@@ -13921,17 +14063,57 @@ client.network.streamListeners[en.metas.state] = function(stream){
 			case en.structID.stageState:
 				client.Stage.setState(data);
 			break;
+			case en.structID.recPing:
+				client.network.recievePing(data);
+			break;
 		}
 
 	});
 };
 
+client.network.send = function(buffer){
+	if(client.network.connected){
+		if(client.network.stream.writable){
+			client.network.stream.write(buffer);
+		}else{
+			client.network.connected = false;
+			alert("Disconnected from server");
+		}
+	}
+};
+
 client.network.deploy = function(data){
-	client.network.stream.write(en.buildBuffer(en.structID.deployPlayer, data));
+	client.network.send(en.buildBuffer(en.structID.deployPlayer, data));
 };
 
 client.network.sendClientData = function(data){
-	client.network.stream.write(en.buildBuffer(en.structID.clientData, data));
+	client.network.send(en.buildBuffer(en.structID.clientData, data));
+};
+
+client.network.onFrame = function(){
+		var now = Date.now();
+		if(now - this.lastPing > 2000){
+			this.ping();
+			this.lastPing = now;
+		}
+};
+
+client.network.ping = function(){
+	client.network.send(en.buildBuffer(en.structID.ping, {
+		time: 0,
+	}));
+};
+
+client.network.recievePing = function(data){
+	en.latancy = (Date.now() - this.lastPing) / 2;
+	
+	client.Stage.t = data.time + en.latancy;
+	
+	/*
+	var tmplatancy = en.latancy;
+	en.latancy = (this.prevLatency + en.latancy) / 2;
+	this.prevLatency = tmplatancy;
+	*/
 };
 
 client.network.streamListeners[en.metas.message] = function(stream){
@@ -14029,7 +14211,12 @@ client.player.keyChange = function(){
 		this.pl.turning_right = client.keys[en.utils.vars.KEY.ARROW_RIGHT] || false;
 		this.pl.turning_left = client.keys[en.utils.vars.KEY.ARROW_LEFT] || false;
 		this.pl.firing = client.keys[en.utils.vars.KEY.X] || false;
-		this.pl.boosting = client.keys[en.utils.vars.KEY.SPACE] || false;
+		this.pl.boosting = client.keys[en.utils.vars.KEY.SHIFT] || false;
+		
+		if(client.keys[en.utils.vars.KEY.CAPS])
+			client.hud.stats.show();
+		else
+			client.hud.stats.hide();
 		
 		this.pl.setAwake();
 
@@ -15415,10 +15602,11 @@ client.Player.prototype = {
 };
 
 client.Projectile.prototype = {
-	_init: function(){
-		
+	_pre_init: function(){
 		this.thrustEffect = client.effects.play("BulletTrail", -1);
-		
+	},
+	
+	_init: function(){
 		this.create_mesh();
 		client.soundFX.play("laser_fire_1", true);
 	},
@@ -15528,8 +15716,8 @@ client.Spaceship = function(config){
 client.Spaceship.prototype = {
 	_init: function(){
 		
-		this.thrustEffect = en.resources.get("effect", "ShipThrustFire");
-		this.thrustEffect.init();
+		this.thrustEffect = client.effects.play("ShipThrustFire", -1);
+		this.thrustEffect.pause();
 		
 		this.engineAudio = en.resources.get("audio", "ship_engine").loop(true).play();
 		this.engineAudio.node.playbackRate.value = 0.5;
@@ -15657,7 +15845,6 @@ client.Spaceship.prototype = {
 			
 			var angle = Math.atan2(body_pos.y - collision_point.y, body_pos.x - collision_point.x);
 			
-			
 			if(body_vel.LengthSquared() > 50){
 				this.meshes.shield.rotation.z = angle;
 				this.meshes.shield.visible = true;
@@ -15667,6 +15854,8 @@ client.Spaceship.prototype = {
 	},
 	
 	_destroy: function(){
+		this.thrustEffect.setInitVelocity(0, 0);
+		client.effects.stop(this.thrustEffect);
 		this.engineAudio.stop();
 		client.stage.layers.actors.remove(this.mesh);
 	},

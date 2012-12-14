@@ -10894,6 +10894,7 @@ var en = {
 	draw: typeof THREE == "object" ? true : false,
 	scale: 40,
 	isServer: typeof module === 'undefined' ? false : true,
+	latancy: 0,
 	options: {
 		isServer: typeof module === 'undefined' ? false : true,
 		fps: 60,
@@ -10951,7 +10952,7 @@ var en = {
 };
 
 en.onFrame = function(){
-	var timeNow = (new Date()).getTime(),
+	var timeNow = Date.now(),
 		timeDiff = timeNow-en.lastFrameTime,
 		mult = 1000/timeDiff;
 		en.lastFrameTime = timeNow;
@@ -11036,6 +11037,15 @@ en.utils.options = function(that, defaults, options){
 		ARROW_LEFT: 37,
 		ARROW_RIGHT: 39,
 		SPACE: 32,
+		
+		BACKSPACE: 8,
+		TAB: 9,
+		ENTER: 13,
+		SHIFT: 16,
+		CTRL: 17,
+		CAPS: 20,
+		
+		
 		A: 65,
 		B: 66,
 		C: 67,
@@ -11675,6 +11685,14 @@ en.struct.add("stageState", [
 		]],
 ]);
 
+en.struct.add("ping", [
+	["time", "Int32", 1],
+]);
+
+en.struct.add("recPing", [
+	["time", "Int32", 1],
+]);
+
 en.struct.add("message", [
 	["type", "Uint8", 1],
 	["title", "String"],
@@ -11862,10 +11880,12 @@ en.Object = function(options){
 		size: 5,
 	}, options);
 	
+	/*
 	this.bodyDiff = {
 		position: new b2Vec2(),
 		rotation: 0,
 	},
+	*/
 	
 	en.Base.apply(this, [options]);
 };
@@ -12035,6 +12055,7 @@ en.struct.extend("stageState", "Object", [
 		netSynch: true,
 		username: "test",
 		level: 0,
+		points: 0,
 		xp: 0,
 		kills: 0,
 		deaths: 0,
@@ -12050,7 +12071,37 @@ en.struct.extend("stageState", "Object", [
 };
 
 en.Player.prototype = {
-	
+	getFullState: function(){
+		return {
+			id: this.id,
+			name: this.name,
+			type: this.type,
+			material: this.material,
+			color: this.color,
+			
+			username: this.username,
+			level: this.level,
+			points: this.points,
+			xp: this.xp,
+			kills: this.kills,
+			deaths: this.deaths,
+			
+			mass: this.mass,
+			density: this.density,
+			friction: this.friction,
+			restitution: this.restitution,
+			position: {
+				x: this.position.x,
+				y: this.position.y,
+			},
+			linear_damping: this.linear_damping,
+			angular_damping: this.angular_damping,
+			rotation: this.rotation,
+			size: this.size,
+			categoryBits: this.categoryBits,
+			maskBits: this.maskBits,
+		};
+	},
 };
 
 en.struct.extend("stageFullState", "Player", [
@@ -12058,6 +12109,14 @@ en.struct.extend("stageFullState", "Player", [
 		["type", "String"],
 		["name", "String"],
 		["material", "String"],
+		
+		["username", "String"],
+		["level", "Int32", 1],
+		["points", "Int32", 1],
+		["xp", "Int32", 1],
+		["kills", "Int32", 1],
+		["deaths", "Int32", 1],
+		
 		["color", "Int32", 1],
 		
 		["mass", "Float32", 1],
@@ -12155,6 +12214,8 @@ en.Projectile.prototype = {
 		var velX = this.speed * Math.cos(this.rotation),
 			velY = this.speed * Math.sin(this.rotation);
 
+		this.call("pre_init");
+
 		this.Create_Body();
 		this.body.SetLinearVelocity(new b2Vec2(this.velocity.x, this.velocity.y));
 		this.body.ApplyImpulse(new b2Vec2(velX, velY), this.body.GetPosition());
@@ -12208,15 +12269,13 @@ en.Projectile.prototype = {
 			fixB = contact.GetFixtureB().GetBody().GetUserData();
 		
 		
-		if(fixB)
+		if(fixB && typeof fixB.damage == "function")
 			fixB.damage(this, this.proj_type, this.damage);
 		
 		this.destroy_queue = true;
 	},
 	
 	_BeginContact: function(contact){
-		
-		
 		this.call("hit", this.body, contact);
 		this.destroy_queue = true;
 	},
@@ -12278,7 +12337,7 @@ en.Projectile.prototype = {
 		shield_recharge_frequency: 5,
 
 		boostForce: 700,
-		boostTime: 2000,
+		boostTime: 900,
 		boostRecharge: 3000,
 		
 		//KEY DATA
@@ -12541,33 +12600,37 @@ en.Spaceship.prototype = {
 		  var currentVelocity = this.body.GetLinearVelocity().Copy();
 		  var currentPos = this.body.GetPosition().Copy();
 		  var positionDiff = new b2Vec2(state.body.position[0], state.body.position[1]);
-		  positionDiff.Subtract(currentPos);
-		  
 		  
 		  /*
-		  var dtx = positionDiff.x / (state.body.velocity[0]-currentVelocity.x);
-		  var dty = positionDiff.y / (state.body.velocity[1]-currentVelocity.y);
-
-		  currentPos.Set(
-		  	state.body.position[0] + (dtx*state.body.velocity[0]),
-			state.body.position[1] + (dty*state.body.velocity[0])
-		  );
+		  positionDiff.Add({
+			 x:en.latancy*(state.body.velocity[0]/1000),
+			 y:en.latancy*(state.body.velocity[1]/1000)
+		  });
 		  */
+		  positionDiff.Subtract(currentPos);
 		  
-		 
+		  var realDiffX = positionDiff.x - currentPos.x;
+		  var realDiffY = positionDiff.y - currentPos.y;
+		  var predictedDiffX = en.latancy*state.body.velocity[0]/60;
+		  var predictedDiffY = en.latancy*state.body.velocity[1]/60;
+		  
+		  //console.log("Realdiff      : ", realDiffX, realDiffY);
+		  //console.log("Predicted diff: ", predictedDiffX, predictedDiffY);
+		  
+		  //currentPos.Add({x: predictedDiffX, y: predictedDiffY});
 
-		  
 		  if(positionDiff.LengthSquared() > 625){
 			  currentPos.Set(state.body.position[0], state.body.position[1]);
 		  }else{
 			  positionDiff.Multiply(0.01);
 		  	  currentPos.Add(positionDiff);
 		  }
-		
 		  
+		  //console.log((positionDiff.Length() * 1000 | 0)/1000);
 		 
 		  
 		  var currentRotation = this.body.GetAngle(),
+		  	  rotation = state.body.rotation + en.latancy * (state.body.angular_velocity / 60),
 			  angleDiff = state.body.rotation-this.body.GetAngle();
 
 		this.body.SetPositionAndAngle(currentPos, (angleDiff > 0.5 ? state.body.rotation : currentRotation+0.12*angleDiff));
@@ -12817,20 +12880,7 @@ en.Stage.prototype = {
 		
 		//en.call("stage/begin/update", mult);
 		
-		var group = this.objects.index;
-		for(var i = 0, l = group.length; i < l; ++i){
-			var obj = this.objects.get(group[i]);
-			if(obj){
-				if(obj.destroy_queue){
-					obj.destroy();
-				}else
-				if(obj.body.IsAwake()){
-					obj.__update();
-				}else{
-					this.objects.removeFromGroup("awake", obj.id);
-				}
-			}
-		}
+		
 		
 		
 /*
@@ -12864,6 +12914,24 @@ en.Stage.prototype = {
 		this.t += this.deltaTime;
 
 		this.frameTime += this.deltaTime;
+		
+		//-------------------------------
+		var group = this.objects.index;
+		for(var i = 0, l = group.length; i < l; ++i){
+			var obj = this.objects.get(group[i]);
+			if(obj){
+				if(obj.destroy_queue){
+					obj.destroy();
+				}else
+				if(obj.body.IsAwake()){
+					obj.__update();
+				}else{
+					this.objects.removeFromGroup("awake", obj.id);
+				}
+			}
+		}
+		//---------------------------------
+		
 		while(this.frameTime > 0){
 			var dTime = Math.min(this.deltaTime, timeStep);
 			this.physics_world.Step(dTime/1000, 8, 8);
@@ -12916,9 +12984,9 @@ en.Stage.prototype = {
 	},
 	
 	setState: function(state){
-		var deltaT = this.deltaT = this.t - state.time;
+		//var deltaT = this.deltaT = this.t - state.time;
 		
-		this.serverDT = deltaT/this.deltaTime;
+		//this.serverDT = deltaT/this.deltaTime;
 		
 		//console.log(this.serverDT);
 

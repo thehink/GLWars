@@ -83,7 +83,12 @@ client.player.keyChange = function(){
 		this.pl.turning_right = client.keys[en.utils.vars.KEY.ARROW_RIGHT] || false;
 		this.pl.turning_left = client.keys[en.utils.vars.KEY.ARROW_LEFT] || false;
 		this.pl.firing = client.keys[en.utils.vars.KEY.X] || false;
-		this.pl.boosting = client.keys[en.utils.vars.KEY.SPACE] || false;
+		this.pl.boosting = client.keys[en.utils.vars.KEY.SHIFT] || false;
+		
+		if(client.keys[en.utils.vars.KEY.CAPS])
+			client.hud.stats.show();
+		else
+			client.hud.stats.hide();
 		
 		this.pl.setAwake();
 

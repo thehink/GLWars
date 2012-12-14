@@ -22,10 +22,12 @@ en.Object = function(options){
 		size: 5,
 	}, options);
 	
+	/*
 	this.bodyDiff = {
 		position: new b2Vec2(),
 		rotation: 0,
 	},
+	*/
 	
 	en.Base.apply(this, [options]);
 };

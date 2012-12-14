@@ -29,6 +29,47 @@ client.hud.healthBar = new client.hud.progbar("health-bar");
 client.hud.shieldBar = new client.hud.progbar("shield-bar");
 client.hud.energyBar = new client.hud.progbar("energy-bar");
 
+
+client.hud.stats = {
+	showing: false,
+	
+	show: function(){
+		if(!this.showing){
+			$("#pl-stats").show();
+			this.showing = true;
+			this.update();
+		}
+	},
+	
+	update: function(){
+		$("#pl-stats tbody").empty();
+		
+		for(var i in client.players){
+			var player = client.players[i];
+			
+			var html = '<tr>';
+				html += '<td>' + i + '</td>';
+				html += '<td>' + player.username + '</td>';
+				html += '<td>' + player.points + '</td>';
+				html += '<td>' + player.level + '</td>';
+				html += '<td>' + player.kills + '</td>';
+				html += '<td>' + player.deaths + '</td>';
+				html += '</tr>';
+			
+			$("#pl-stats tbody").append(html);
+			
+		}
+		
+	},
+	
+	hide: function(){
+		if(this.showing){
+			$("#pl-stats").hide();
+			this.showing = false;
+		}
+	},
+};
+
 client.hud.deployment = {
 	init: function(){
 		$("#deploy-button").click(client.player.deploy);

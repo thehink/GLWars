@@ -42,7 +42,7 @@ en.Spaceship = function(options){
 		shield_recharge_frequency: 5,
 
 		boostForce: 700,
-		boostTime: 2000,
+		boostTime: 900,
 		boostRecharge: 3000,
 		
 		//KEY DATA
@@ -305,33 +305,37 @@ en.Spaceship.prototype = {
 		  var currentVelocity = this.body.GetLinearVelocity().Copy();
 		  var currentPos = this.body.GetPosition().Copy();
 		  var positionDiff = new b2Vec2(state.body.position[0], state.body.position[1]);
-		  positionDiff.Subtract(currentPos);
-		  
 		  
 		  /*
-		  var dtx = positionDiff.x / (state.body.velocity[0]-currentVelocity.x);
-		  var dty = positionDiff.y / (state.body.velocity[1]-currentVelocity.y);
-
-		  currentPos.Set(
-		  	state.body.position[0] + (dtx*state.body.velocity[0]),
-			state.body.position[1] + (dty*state.body.velocity[0])
-		  );
+		  positionDiff.Add({
+			 x:en.latancy*(state.body.velocity[0]/1000),
+			 y:en.latancy*(state.body.velocity[1]/1000)
+		  });
 		  */
+		  positionDiff.Subtract(currentPos);
 		  
-		 
+		  var realDiffX = positionDiff.x - currentPos.x;
+		  var realDiffY = positionDiff.y - currentPos.y;
+		  var predictedDiffX = en.latancy*state.body.velocity[0]/60;
+		  var predictedDiffY = en.latancy*state.body.velocity[1]/60;
+		  
+		  //console.log("Realdiff      : ", realDiffX, realDiffY);
+		  //console.log("Predicted diff: ", predictedDiffX, predictedDiffY);
+		  
+		  //currentPos.Add({x: predictedDiffX, y: predictedDiffY});
 
-		  
 		  if(positionDiff.LengthSquared() > 625){
 			  currentPos.Set(state.body.position[0], state.body.position[1]);
 		  }else{
 			  positionDiff.Multiply(0.01);
 		  	  currentPos.Add(positionDiff);
 		  }
-		
 		  
+		  //console.log((positionDiff.Length() * 1000 | 0)/1000);
 		 
 		  
 		  var currentRotation = this.body.GetAngle(),
+		  	  rotation = state.body.rotation + en.latancy * (state.body.angular_velocity / 60),
 			  angleDiff = state.body.rotation-this.body.GetAngle();
 
 		this.body.SetPositionAndAngle(currentPos, (angleDiff > 0.5 ? state.body.rotation : currentRotation+0.12*angleDiff));

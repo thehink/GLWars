@@ -39,6 +39,15 @@ en.utils.vars = {
 		ARROW_LEFT: 37,
 		ARROW_RIGHT: 39,
 		SPACE: 32,
+		
+		BACKSPACE: 8,
+		TAB: 9,
+		ENTER: 13,
+		SHIFT: 16,
+		CTRL: 17,
+		CAPS: 20,
+		
+		
 		A: 65,
 		B: 66,
 		C: 67,

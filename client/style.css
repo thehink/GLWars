@@ -43,7 +43,7 @@ section#wrapper{
 *   cover whole screen
 */
 
-#loader{
+#loader, #pl-stats{
 	position:absolute;
 	display:block;
 	background:rgba(0,0,0,.8);     /* background transparent black */
@@ -270,6 +270,59 @@ input:-ms-input-placeholder {
 	border-top:none;
 	box-shadow: inset rgba(0,0,0,1) 1px 1px 2px, inset rgba(0,0,0,1) -1px -1px 2px;
 	border-bottom:1px solid #666;
+}
+
+#pl-stats{
+	position:absolute;
+	display:none;
+	background:rgba(0,0,0,.1);
+}
+
+#pl-stats > .stats-box{
+	position:relative;
+	display:block;
+	width:800px;
+	min-height:300px;
+	margin:5% auto;
+	background:#222;
+	border-radius:3px;
+}
+
+.stats-table{
+	*border-collapse: collapse; /* IE7 and lower */
+    border-spacing: 0;
+	border-right:1px solid #333;
+}
+
+.stats-table th, .stats-table tr{
+	padding: 8px 10px;
+	text-align:center;
+	text-shadow:rgba(255,255,255,.05) 1px 1px;
+}
+
+.stats-table th{
+	border-bottom:1px solid #111;
+	color: rgba(0,153,204,1);
+	text-shadow:rgba(0,0,0,.05) 1px 1px;
+}
+
+.stats-table tr{
+	
+}
+
+.stats-table tr:nth-child(even){
+	background:rgba(0,0,0,.1);
+}
+
+.stats-table tbody > tr:hover{
+	cursor:pointer;
+	background:rgba(0,153,204,.1);
+}
+
+.stats-table td{
+	padding: 4px 10px;
+	border-top: 1px solid #333;
+	border-bottom: 1px solid #111;
 }
 
 #deployment{

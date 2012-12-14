@@ -10,8 +10,8 @@ client.Spaceship = function(config){
 client.Spaceship.prototype = {
 	_init: function(){
 		
-		this.thrustEffect = en.resources.get("effect", "ShipThrustFire");
-		this.thrustEffect.init();
+		this.thrustEffect = client.effects.play("ShipThrustFire", -1);
+		this.thrustEffect.pause();
 		
 		this.engineAudio = en.resources.get("audio", "ship_engine").loop(true).play();
 		this.engineAudio.node.playbackRate.value = 0.5;
@@ -139,7 +139,6 @@ client.Spaceship.prototype = {
 			
 			var angle = Math.atan2(body_pos.y - collision_point.y, body_pos.x - collision_point.x);
 			
-			
 			if(body_vel.LengthSquared() > 50){
 				this.meshes.shield.rotation.z = angle;
 				this.meshes.shield.visible = true;
@@ -149,6 +148,8 @@ client.Spaceship.prototype = {
 	},
 	
 	_destroy: function(){
+		this.thrustEffect.setInitVelocity(0, 0);
+		client.effects.stop(this.thrustEffect);
 		this.engineAudio.stop();
 		client.stage.layers.actors.remove(this.mesh);
 	},

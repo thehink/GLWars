@@ -5,6 +5,7 @@ en.Player = function(options){
 		netSynch: true,
 		username: "test",
 		level: 0,
+		points: 0,
 		xp: 0,
 		kills: 0,
 		deaths: 0,
@@ -20,7 +21,37 @@ en.Player = function(options){
 };
 
 en.Player.prototype = {
-	
+	getFullState: function(){
+		return {
+			id: this.id,
+			name: this.name,
+			type: this.type,
+			material: this.material,
+			color: this.color,
+			
+			username: this.username,
+			level: this.level,
+			points: this.points,
+			xp: this.xp,
+			kills: this.kills,
+			deaths: this.deaths,
+			
+			mass: this.mass,
+			density: this.density,
+			friction: this.friction,
+			restitution: this.restitution,
+			position: {
+				x: this.position.x,
+				y: this.position.y,
+			},
+			linear_damping: this.linear_damping,
+			angular_damping: this.angular_damping,
+			rotation: this.rotation,
+			size: this.size,
+			categoryBits: this.categoryBits,
+			maskBits: this.maskBits,
+		};
+	},
 };
 
 en.struct.extend("stageFullState", "Player", [
@@ -28,6 +59,14 @@ en.struct.extend("stageFullState", "Player", [
 		["type", "String"],
 		["name", "String"],
 		["material", "String"],
+		
+		["username", "String"],
+		["level", "Int32", 1],
+		["points", "Int32", 1],
+		["xp", "Int32", 1],
+		["kills", "Int32", 1],
+		["deaths", "Int32", 1],
+		
 		["color", "Int32", 1],
 		
 		["mass", "Float32", 1],

@@ -47,6 +47,14 @@ en.struct.add("stageState", [
 		]],
 ]);
 
+en.struct.add("ping", [
+	["time", "Int32", 1],
+]);
+
+en.struct.add("recPing", [
+	["time", "Int32", 1],
+]);
+
 en.struct.add("message", [
 	["type", "Uint8", 1],
 	["title", "String"],

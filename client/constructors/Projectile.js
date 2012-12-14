@@ -6,10 +6,11 @@ client.Projectile = function(config){
 };
 
 client.Projectile.prototype = {
-	_init: function(){
-		
+	_pre_init: function(){
 		this.thrustEffect = client.effects.play("BulletTrail", -1);
-		
+	},
+	
+	_init: function(){
 		this.create_mesh();
 		client.soundFX.play("laser_fire_1", true);
 	},

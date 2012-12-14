@@ -2,6 +2,9 @@ client.network = {
 	client: {},
 	keyPressStream: {},
 	gameStateStream: {},
+	lastPing: 0,
+	prevLatency: 0,
+	connected: false,
 };
 
 client.network.init = function(){
@@ -44,10 +47,12 @@ client.network.streamListeners[en.metas.state] = function(stream){
 	
 	stream.on('data', function(buffer){
 		var data = en.readBufferToData(buffer);
+		
 		switch(data._sid){
 			case en.structID.stageFullStateSpaceship:
 				client.player.setData(data);
 				client.player.deployMenu();
+				client.network.connected = true;
 			break;
 			case en.structID.stageFullState:
 				client.Stage.setFullState(data);
@@ -58,17 +63,57 @@ client.network.streamListeners[en.metas.state] = function(stream){
 			case en.structID.stageState:
 				client.Stage.setState(data);
 			break;
+			case en.structID.recPing:
+				client.network.recievePing(data);
+			break;
 		}
 
 	});
 };
 
+client.network.send = function(buffer){
+	if(client.network.connected){
+		if(client.network.stream.writable){
+			client.network.stream.write(buffer);
+		}else{
+			client.network.connected = false;
+			alert("Disconnected from server");
+		}
+	}
+};
+
 client.network.deploy = function(data){
-	client.network.stream.write(en.buildBuffer(en.structID.deployPlayer, data));
+	client.network.send(en.buildBuffer(en.structID.deployPlayer, data));
 };
 
 client.network.sendClientData = function(data){
-	client.network.stream.write(en.buildBuffer(en.structID.clientData, data));
+	client.network.send(en.buildBuffer(en.structID.clientData, data));
+};
+
+client.network.onFrame = function(){
+		var now = Date.now();
+		if(now - this.lastPing > 2000){
+			this.ping();
+			this.lastPing = now;
+		}
+};
+
+client.network.ping = function(){
+	client.network.send(en.buildBuffer(en.structID.ping, {
+		time: 0,
+	}));
+};
+
+client.network.recievePing = function(data){
+	en.latancy = (Date.now() - this.lastPing) / 2;
+	
+	client.Stage.t = data.time + en.latancy;
+	
+	/*
+	var tmplatancy = en.latancy;
+	en.latancy = (this.prevLatency + en.latancy) / 2;
+	this.prevLatency = tmplatancy;
+	*/
 };
 
 client.network.streamListeners[en.metas.message] = function(stream){

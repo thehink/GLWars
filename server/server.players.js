@@ -37,6 +37,8 @@ server.players.add = function(player){
 server.players.setOnline = function(player, client){
 	player.online = true;
 	player.client = client;
+	player.destroy_queue = false;
+	
 	player.stateStream = client.createStream(en.metas.state);
 	player.stateStream.player = player;
 	player.stateStream.on('data', server.network.onClientData);
@@ -58,7 +60,11 @@ server.players.setOffline = function(player){
 
 server.players.login = function(username, password, client){
 	var player = this.getByUsername(username);
+	
 	if(player){
+		if(player.online){
+			return false;
+		}else
 		if(player.password == password)
 			return server.players.setOnline(player, client);
 		else

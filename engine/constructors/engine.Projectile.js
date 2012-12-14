@@ -58,6 +58,8 @@ en.Projectile.prototype = {
 		var velX = this.speed * Math.cos(this.rotation),
 			velY = this.speed * Math.sin(this.rotation);
 
+		this.call("pre_init");
+
 		this.Create_Body();
 		this.body.SetLinearVelocity(new b2Vec2(this.velocity.x, this.velocity.y));
 		this.body.ApplyImpulse(new b2Vec2(velX, velY), this.body.GetPosition());
@@ -111,15 +113,13 @@ en.Projectile.prototype = {
 			fixB = contact.GetFixtureB().GetBody().GetUserData();
 		
 		
-		if(fixB)
+		if(fixB && typeof fixB.damage == "function")
 			fixB.damage(this, this.proj_type, this.damage);
 		
 		this.destroy_queue = true;
 	},
 	
 	_BeginContact: function(contact){
-		
-		
 		this.call("hit", this.body, contact);
 		this.destroy_queue = true;
 	},

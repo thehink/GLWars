@@ -10,6 +10,7 @@ var BinaryServer = require(modulesPath+'binaryjs').BinaryServer,
 	
  var server = {
 	 isRunning: true,
+	 lastFrame: 0,
  };
  
  var ArrayBuffer = Buffer;
@@ -39,8 +40,13 @@ var BinaryServer = require(modulesPath+'binaryjs').BinaryServer,
  
  server.tick = function(){
 	 en.onFrame();
-	 server.network.onFrame();
+	 
+	 var now = Date.now();
+	 if(now - server.lastFrame > 50){
+		server.network.onFrame();
+		server.lastFrame = now;
+	}
 	 
 	 if(server.isRunning)
-	 	setTimeout(server.tick, 1000/30);
+	 	setTimeout(server.tick, 1000/60);
  };

@@ -125,8 +125,17 @@ server.network.onClientData = function(buffer){
 		case en.structID.clientData:
 			server.players.parseClientData(this.player, data);
 		break;
+		case en.structID.ping:
+			server.network.ping(this.player, data);
+		break;
 	}
 	
+};
+
+server.network.ping = function(player, data){
+	player.stateStream.write(en.buildBuffer(en.structID.recPing, {
+		time: server.stage.stage.t,
+	}));
 };
 
 server.network.broadcast = function(buffer){

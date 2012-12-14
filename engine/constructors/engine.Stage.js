@@ -151,20 +151,7 @@ en.Stage.prototype = {
 		
 		//en.call("stage/begin/update", mult);
 		
-		var group = this.objects.index;
-		for(var i = 0, l = group.length; i < l; ++i){
-			var obj = this.objects.get(group[i]);
-			if(obj){
-				if(obj.destroy_queue){
-					obj.destroy();
-				}else
-				if(obj.body.IsAwake()){
-					obj.__update();
-				}else{
-					this.objects.removeFromGroup("awake", obj.id);
-				}
-			}
-		}
+		
 		
 		
 /*
@@ -198,6 +185,24 @@ en.Stage.prototype = {
 		this.t += this.deltaTime;
 
 		this.frameTime += this.deltaTime;
+		
+		//-------------------------------
+		var group = this.objects.index;
+		for(var i = 0, l = group.length; i < l; ++i){
+			var obj = this.objects.get(group[i]);
+			if(obj){
+				if(obj.destroy_queue){
+					obj.destroy();
+				}else
+				if(obj.body.IsAwake()){
+					obj.__update();
+				}else{
+					this.objects.removeFromGroup("awake", obj.id);
+				}
+			}
+		}
+		//---------------------------------
+		
 		while(this.frameTime > 0){
 			var dTime = Math.min(this.deltaTime, timeStep);
 			this.physics_world.Step(dTime/1000, 8, 8);
@@ -250,9 +255,9 @@ en.Stage.prototype = {
 	},
 	
 	setState: function(state){
-		var deltaT = this.deltaT = this.t - state.time;
+		//var deltaT = this.deltaT = this.t - state.time;
 		
-		this.serverDT = deltaT/this.deltaTime;
+		//this.serverDT = deltaT/this.deltaTime;
 		
 		//console.log(this.serverDT);
 

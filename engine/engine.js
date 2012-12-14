@@ -23,6 +23,7 @@ var en = {
 	draw: typeof THREE == "object" ? true : false,
 	scale: 40,
 	isServer: typeof module === 'undefined' ? false : true,
+	latancy: 0,
 	options: {
 		isServer: typeof module === 'undefined' ? false : true,
 		fps: 60,
@@ -80,7 +81,7 @@ var en = {
 };
 
 en.onFrame = function(){
-	var timeNow = (new Date()).getTime(),
+	var timeNow = Date.now(),
 		timeDiff = timeNow-en.lastFrameTime,
 		mult = 1000/timeDiff;
 		en.lastFrameTime = timeNow;
