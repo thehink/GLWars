@@ -34,17 +34,25 @@ en.struct.add("stageFullState", [
 		["time", "Int32", 1],
 		["reset", "Bool"],
 		["remove", "Array", [
-			["id", "Uint8", 1],
+			["id", "Int32", 1],
 			["method", "Uint8", 1],
 		]],
 ]);
 
 en.struct.add("stageState", [
 	["time", "Int32", 1],
-	["remove", "Array", [
-			["id", "Int32", 1],
-			["method", "Uint8", 1],
-		]],
+	["killed", "Array", [
+		["id", "Int32", 1],
+		["by", "Int32", 1],
+		["type", "Uint8", 1],
+	]],
+]);
+
+en.struct.add("stageRemoved", [
+	["removed", "Array", [
+		["id", "Int32", 1],
+		["method", "Uint8", 1],
+	]],
 ]);
 
 en.struct.add("ping", [

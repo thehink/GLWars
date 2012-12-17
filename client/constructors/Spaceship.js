@@ -31,8 +31,8 @@ client.Spaceship.prototype = {
 				y: position.y*en.scale*2,
 			},
 			initVelocity: {
-				x: velocity.x/3,
-				y: velocity.y/3,
+				x: velocity.x,
+				y: velocity.y,
 			},
 		});
 		
@@ -72,7 +72,7 @@ client.Spaceship.prototype = {
 			  
 		  mesh.position.x = pos.x*en.scale;
 		  mesh.position.y = pos.y*en.scale;
-		  hull.rotation.z = this.body.GetAngle();
+		  mesh.rotation.z = this.body.GetAngle();
 		  
 		  if(this.shield_timeout > 0){
 			  this.shield_timeout--;
@@ -99,11 +99,11 @@ client.Spaceship.prototype = {
 			geometry = new THREE.PlaneGeometry(this.size*en.scale*2, this.size*en.scale*2);
 		
 		this.meshes.hull = new THREE.Mesh(geometry, material);
-		this.meshes.hull.rotation.z = this.body.GetAngle();
 		this.meshes.hull.material.color.setHex(this.color);
 		
 		var pos = this.body.GetPosition();
 		this.mesh.position.set(pos.x*en.scale, pos.y*en.scale, 0);
+		this.mesh.rotation.z = this.body.GetAngle();
 		//mesh.overdraw = true;
 		//mesh.castShadow = true;
 		//mesh.receiveShadow = true;
@@ -114,6 +114,28 @@ client.Spaceship.prototype = {
 			
 		this.meshes.shield = new THREE.Mesh(geometry, shield_material);
 		this.meshes.shield.visible = false;
+		
+		for(var i in this.weapon_spots){
+			var spots = this.weapon_spots[i].spots;
+			var weapon = en.getRes(this.weapon_spots[i].weapon);
+			
+			if(weapon){
+				this.meshes['mesh_weapon_'+i] = new THREE.Object3D();
+				for(var j in spots){
+					var weapon_material = en.resources.get("material", weapon.material),
+						weapon_geometry = new THREE.PlaneGeometry(this.size*en.scale, this.size*en.scale),
+						weapon_mesh = new THREE.Mesh(weapon_geometry, weapon_material),
+						spot = spots[j];
+						
+					weapon_mesh.rotation.z = -spot.angle;
+					weapon_mesh.position.x = spot.y * 40;
+					weapon_mesh.position.y = spot.x * 40;
+						
+				 	this.meshes['mesh_weapon_'+i].add(weapon_mesh);
+				}
+			}
+			
+		}
 		
 		for(var i in this.meshes){
 			this.mesh.add(this.meshes[i]);
@@ -140,7 +162,7 @@ client.Spaceship.prototype = {
 			var angle = Math.atan2(body_pos.y - collision_point.y, body_pos.x - collision_point.x);
 			
 			if(body_vel.LengthSquared() > 50){
-				this.meshes.shield.rotation.z = angle;
+				this.meshes.shield.rotation.z = angle-body.GetAngle();
 				this.meshes.shield.visible = true;
 				this.shield_timeout = 10;
 			}

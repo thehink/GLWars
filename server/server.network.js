@@ -49,7 +49,7 @@ server.network.authenticate = function(buffer){
 				
 			var player = server.players.login(username, password, this.client);
 			if(player){
-				player.stateStream.write(en.buildBuffer(en.structID.stageFullStateSpaceship, player.getFullState()));
+				player.stateStream.write(en.buildBuffer(en.structID.stageFullStatePlayer, player.getFullState()));
 				player.stateStream.write(en.buildBuffer(en.structID.stageFullState, server.stage.stage.getFullState()));
 			}else{
 				console.log("ERROR", "USERNAME:", username);
@@ -65,11 +65,17 @@ server.network.authenticate = function(buffer){
 server.network.onFrame = function(){
 	var stateBuffer = en.buildBuffer(en.structID.stageState, server.stage.stage.getState());
 	
-	var newObjects = false;
+	var newObjects = false,
+		removedObjects = false;
 	
 	if(server.stage.stage.deltaObjects.length > 0){
 		newObjects = true;
 		var newObjectsBuffer = en.buildBuffer(en.structID.stageFullState, server.stage.stage.getDeltaState());
+	}
+	
+	if(server.stage.stage.deltaRemove.length > 0){
+		removedObjects = true;
+		var removedObjectsBuffer = en.buildBuffer(en.structID.stageRemoved, server.stage.stage.getRemovedState());
 	}
 	
 	for(var i = 0; i < server.players.active.length; i++){
@@ -77,6 +83,9 @@ server.network.onFrame = function(){
 		var client = player.client;
 		
 		if(player.stateStream.writable){
+			if(removedObjects)
+				player.stateStream.write(removedObjectsBuffer);
+			
 			if(newObjects)
 				player.stateStream.write(newObjectsBuffer);
 			

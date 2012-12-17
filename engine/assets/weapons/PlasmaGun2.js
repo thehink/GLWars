@@ -1,0 +1,16 @@
+en.resources.add("weapon", "PlasmaGunTwo", {
+		name: "PlasmaGunTwo",
+		material: "weapon_plasmagun",
+		type: "Weapon",
+		class: "secondary",
+		price: 1000,
+		level: 0,
+		firerate: 120,
+		recoil: 3,
+		speed: 10,
+		energy: 50,
+		spread_angle: 0,
+		ammo: -1,
+		clip: -1,
+		projectile: "deafult",
+});

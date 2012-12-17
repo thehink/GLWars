@@ -19,6 +19,7 @@ en.resources.add("spaceship", "Fighter", {
 	},
 	
 	material: "spaceship_hull",
+	color: 0xffffff,
 	
 	size: 2,
 	mass: 12,
@@ -40,7 +41,7 @@ en.resources.add("spaceship", "Fighter", {
 	shield_recharge_frequency: 5,
 
 	boostForce: 700,
-	boostTime: 2000,
+	boostTime: 900,
 	boostRecharge: 3000,
 	
 	//KEY DATA
@@ -55,23 +56,8 @@ en.resources.add("spaceship", "Fighter", {
 	//END KEY Data
 
 	weapon_spots: {
-		special: {
-			name: "special",
-			spots: [],
-		},
-		
-		secondary:{
-			name: "secondary",
-			spots: [
-				{
-					angle: 0,
-					x: 0,
-					y: 2,
-				}
-			],
-		},
 		primary: {
-			name: "primary",
+			weapon: -1,
 			spots: [
 				{
 					angle: 0.1,
@@ -84,7 +70,29 @@ en.resources.add("spaceship", "Fighter", {
 					y: 2.5,
 				}
 			],
-		}
+		},
+		
+		secondary:{
+			weapon: -1,
+			spots: [
+				{
+					angle: 0,
+					x: 0,
+					y: 2,
+				}
+			],
+		},
+		
+		special: {
+			weapon: -1,
+			spots: [],
+		},
+		
+		bonus: {
+			weapon: -1,
+			spots: [],
+		},
+		
 	},
 	
 	weapon_bonus: {

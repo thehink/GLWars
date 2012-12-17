@@ -12,7 +12,7 @@ en.resources.add("projectile", "deafult", {
 	size_x: 0.7,
 	size_y: .2,
 	
-	damage: 7,
+	damage: 70,
 	
 	explosion: {
 		explode_range_limit: true,

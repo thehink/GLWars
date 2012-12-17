@@ -42,8 +42,8 @@ en.Spaceship = function(options){
 		shield_recharge_frequency: 5,
 
 		boostForce: 700,
-		boostTime: 900,
-		boostRecharge: 3000,
+		boostTime: 2000,
+		boostRecharge: 8000,
 		
 		//KEY DATA
 		
@@ -52,41 +52,48 @@ en.Spaceship = function(options){
 		thrusting: 0,
 		turning_left: false,
 		turning_right: false,
-		weapon: 0,
+		weapon: en.utils.vars.WCLASS.primary,
 		
 		//END KEY Data
 
 		weapon_spots: {
-			special: {
-				name: "special",
-				spots: [],
+			primary: {
+				weapon: en.res.weapon.PlasmaGun,
+				spots: [
+					{
+						angle: 0.1,
+						x: 1.7,
+						y: 0.5,
+					},
+					{
+						angle: -0.1,
+						x: -1.7,
+						y: 0.5,
+					}
+				],
 			},
 			
 			secondary:{
-				name: "secondary",
+				weapon: en.res.weapon.PlasmaGunTwo,
 				spots: [
 					{
 						angle: 0,
 						x: 0,
-						y: 2,
+						y: 1,
 					}
 				],
 			},
-			primary: {
-				name: "primary",
-				spots: [
-					{
-						angle: 0.1,
-						x: 1.2,
-						y: 2.5,
-					},
-					{
-						angle: -0.1,
-						x: -1.2,
-						y: 2.5,
-					}
-				],
-			}
+			
+			special: {
+				weapon: -1,
+				spots: [],
+			},
+			
+			bonus: {
+				weapon: -1,
+				spots: [],
+			},
+			
 		},
 		
 		weapon_bonus: {
@@ -96,21 +103,28 @@ en.Spaceship = function(options){
 
 	}, options);
 	
-	this.weapons = [];
+	this.weapons = {};
 	this.activeWeapon = 0;
 	
 	this.boostTimeleft = 0;
 	this.boostLock = false;
 	
 	en.Entity.apply(this, [options]);
-	this.defaultt();
+	this.setWeapons();
 };
 
 en.Spaceship.prototype = {
-	
-	defaultt: function(){
-		this.addWeapon("PlasmaGun");
-		this.setWeapon(0);
+	setWeapons: function(){
+		for(var i in this.weapon_spots){
+			var weapon = en.getRes(this.weapon_spots[i].weapon);
+			if(weapon && (weapon.class == i || 1==1)){
+				for(var j = 0; j < this.weapon_spots[i].spots.length; ++j){
+					this.addWeapon(en.utils.vars.WCLASS[i], weapon);
+				}
+			}
+		}
+
+		this.setActiveWeapons(this.weapon);
 	},
 	
 	damage: function(who, type, damage){
@@ -128,16 +142,27 @@ en.Spaceship.prototype = {
 		if(this.shields < 1){
 			this.health -= damage;
 		}
+		
+		this.lastDamaged = {
+			who: who,
+			type: type,
+			damage: damage,
+		};
 
 		this.call("_damage", who, type, damage);
 	},
 	
 	fire: function(){
-		//todo: fire weapon
-	
-		if(this.activeWeapon){
-			if(!this.body.IsAwake())this.stage.setAwake(this, true);
-			this.activeWeapon.fire(this, this.body.GetPosition(), this.body.GetAngle());
+		if(this.activeWeaponClass){
+			this.stage.setAwake(this, true);
+			
+			var activeWeapons = this.weapons[this.weapon];
+			
+			for(var i = 0; i < activeWeapons.length; ++i){
+				activeWeapons[i].fire(this, this.weapon_spots[this.activeWeaponClass].spots[i]);
+			}
+
+			
 		}
 	},
 	
@@ -152,23 +177,18 @@ en.Spaceship.prototype = {
 		this.body.ApplyTorque(-this.body.GetInertia()*this.turnSpeed/(1/60.0));
 	},
 	
-	addWeapon: function(weaponName){
+	addWeapon: function(wclass, weapon){
 		
-		var weapon = en.resources.get("weapon", weaponName);
+		if(!this.weapons[wclass])
+			this.weapons[wclass] = [];
 		
-		if(this.weapon_spots[weapon.class]){
-			if(this.weapons.indexOf(weapon) == -1)
-				this.weapons.push(new en.Weapon(weapon));
-				
-		}else{
-			console.log("Ship can't carry weapon");
-			this.call("WeaponCantEquipped");
-		}
+		this.weapons[wclass].push(new en[weapon.type](weapon));
 	},
 	
-	setWeapon: function(w){
-		if(this.weapons[w]){
-			this.activeWeapon = this.weapons[w];
+	setActiveWeapons: function(wclass){
+		if(this.weapon_spots[en.utils.vars.WCLASSR[wclass]] && this.weapons[wclass] && this.weapons[wclass].length > 0){
+			this.activeWeaponClass = en.utils.vars.WCLASSR[wclass];
+			this.weapon = wclass;
 		}
 	},
 	
@@ -214,6 +234,7 @@ en.Spaceship.prototype = {
 		this.health = this.maxHealth;
 		this.shields = this.maxShields;
 		this.boostTimeleft = this.boostTime;
+		this.destroy_queue = false;
 	},
 	
 	_collide: function(contact){
@@ -236,7 +257,9 @@ en.Spaceship.prototype = {
 		
 		if(!this.boosting && this.boostTimeleft < this.boostTime){
 			this.boostTimeleft += this.stage.deltaTime * (this.boostTime / this.boostRecharge);
-		}else if(this.boostLock && this.boostTimeleft >= this.boostTime)
+		}
+		
+		if(this.boostLock && this.boostTimeleft >= this.boostTime/3)
 			this.boostLock = false;
 		
 		if(this.boostTimeleft > this.boostTime)
@@ -261,12 +284,18 @@ en.Spaceship.prototype = {
 	},
 	
 	explode: function(){
+		this.stage.deltaKilled.push({
+			id: this.id,
+			by: this.lastDamaged.who.id,
+			type: 0,
+		});
 		this.destroy_queue = true;
 	},
 	
 	destroy: function(method){
-		this.call("explode");
-		this.call("destroy");
+		console.log("destroyed: ", this.id);
+		this.call("explode", this);
+		this.call("destroy", this);
 		this.stage.removeObject(this);
 		this.destroy_queue = false;
 	},
@@ -278,7 +307,7 @@ en.Spaceship.prototype = {
 			thrusting: this.thrusting,
 			turning_left: this.turning_left,
 			turning_right: this.turning_right,
-			weapon: 0,
+			weapon: this.weapon,
 		};
 		
 		return data;
@@ -290,6 +319,7 @@ en.Spaceship.prototype = {
 		this.thrusting = data.thrusting;
 		this.turning_left = data.turning_left;
 		this.turning_right = data.turning_right;
+		this.setActiveWeapons(data.weapon);
 	},
 	
 	setState: function(state){
@@ -324,7 +354,7 @@ en.Spaceship.prototype = {
 		  
 		  //currentPos.Add({x: predictedDiffX, y: predictedDiffY});
 
-		  if(positionDiff.LengthSquared() > 625){
+		  if(positionDiff.LengthSquared() > 25){
 			  currentPos.Set(state.body.position[0], state.body.position[1]);
 		  }else{
 			  positionDiff.Multiply(0.01);
@@ -386,17 +416,18 @@ en.Spaceship.prototype = {
 			size: this.size,
 			categoryBits: this.categoryBits,
 			maskBits: this.maskBits,
+			weapon_spots: this.weapon_spots,
 		};
 	},
 };
 
 en.struct.extend("stageFullState", "Spaceship", [
-		["id", "Uint8", 1],
+		["id", "Int32", 1],
 		["type", "String"],
 		["name", "String"],
 		["material", "String"],
 		["color", "Int32", 1],
-		
+
 		["mass", "Float32", 1],
 		["density", "Float32", 1],
 		["friction", "Float32", 1],
@@ -411,10 +442,38 @@ en.struct.extend("stageFullState", "Spaceship", [
 		["size", "Float32", 1],
 		["categoryBits", "Int32", 1],
 		["maskBits", "Int32", 1],
+		
+		["weapon_spots", "Struct", [
+			["primary", "Struct", [
+				["weapon", "Int32", 1],
+				["spots", "Array", [
+					["angle", "Float32", 1],
+					["x", "Float32", 1],
+					["y", "Float32", 1],
+				]],
+			]],
+			["secondary", "Struct", [
+				["weapon", "Int32", 1],
+				["spots", "Array", [
+					["angle", "Float32", 1],
+					["x", "Float32", 1],
+					["y", "Float32", 1],
+				]],
+			]],
+			["special", "Struct", [
+				["weapon", "Int32", 1],
+				["spots", "Array", [
+					["angle", "Float32", 1],
+					["x", "Float32", 1],
+					["y", "Float32", 1],
+				]],
+			]]
+		]],
+		
 ]);
 
 en.struct.extend("stageState", "Spaceship", [
-	  ["id", "Uint8", 1],
+	  ["id", "Int32", 1],
 	  ["health", "Int32", 1],
 	  ["shields", "Int32", 1],
 	  ["boostTimeleft", "Int32", 1],

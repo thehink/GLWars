@@ -6,6 +6,20 @@ en.utils.vars = {
 		LASER: 0x0008				
 	},
 	
+	WCLASS: {
+		primary: 0,
+		secondary: 1,
+		special: 2,
+		bonus: 3,
+	},
+	
+	WCLASSR: [
+		"primary",
+		"secondary",
+		"special",
+		"bonus"
+	],
+	
 	COLLISION_GROUP: {
 		PLAYER: 0x0001,
 		ENEMY: 0x0002,
@@ -47,6 +61,16 @@ en.utils.vars = {
 		CTRL: 17,
 		CAPS: 20,
 		
+		NUM0: 48,
+		NUM1: 49,
+		NUM2: 50,
+		NUM3: 51,
+		NUM4: 52,
+		NUM5: 53,
+		NUM6: 54,
+		NUM7: 55,
+		NUM8: 56,
+		NUM9: 57,
 		
 		A: 65,
 		B: 66,

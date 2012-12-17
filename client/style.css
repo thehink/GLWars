@@ -551,10 +551,41 @@ border-bottom-left-radius: 3px;
 	left:0;
 }
 
+#battle-log{
+	position:absolute;
+	display:block;
+	width:300px;
+	height:300px;
+	overflow-y:scroll;
+	right:0;
+	top:0;
+	background:rgba(0,0,0,.5);
+	color:#444;
+}
+
+#battle-log > ul{
+	margin:0;
+	padding:0;
+	list-style:none;
+}
+
+#battle-log > ul > li{
+	margin: 5px 10px;
+}
+
+#battle-log > ul > li .player{
+	color:#777;
+}
+#battle-log > ul > li .killed{
+	color:#900;
+}
+
 #weapons{
 	position:absolute;
 	display:block;
-	margin:200px 0 0 0;
+	width:220px;
+	margin:330px 0 0 0;
+	right:0;
 }
 
 #weapons > .weapon-box{
@@ -566,10 +597,10 @@ border-bottom-left-radius: 3px;
 	margin:20px 10px 0 10px;
 	border:10px solid #333;
 	border-radius:10px;
+	float:right;
 }
 
 #weapons > .weapon-box.active{
-	margin-top:70px;
 	background:rgba(0,80,109,.5);
 	height:60px;
 	width: 180px;
@@ -581,9 +612,21 @@ border-bottom-left-radius: 3px;
 #weapon-bars{
 	position:absolute;
 	width: 200px;
-	height:63px;
+	height:100px;
 	left:25px;
 	bottom:0;
+}
+
+#level{
+	position:absolute;
+	left:310px;
+	font-size:18px;
+	margin-top:-35px;
+	color:#FF0;
+	background:#333;
+	padding: 0 6px;
+	border-radius:3px;
+	border-top:1px solid #666;
 }
 
 #energy-bar-completed{
@@ -650,7 +693,7 @@ border-bottom-left-radius: 3px;
 }
 
 #health-bar{
-
+	margin-left:-100px;
 }
 
 #stage{

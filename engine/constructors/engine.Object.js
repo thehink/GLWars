@@ -162,7 +162,7 @@ en.Object.prototype = {
 };
 
 en.struct.extend("stageFullState", "Object", [
-		["id", "Uint8", 1],
+		["id", "Int32", 1],
 		["type", "String"],
 		["material", "String"],
 		
@@ -183,7 +183,7 @@ en.struct.extend("stageFullState", "Object", [
 ]);
 
 en.struct.extend("stageState", "Object", [
-	  ["id", "Uint8", 1],
+	  ["id", "Int32", 1],
 	  ["body", "Struct", [
 		  ["position", "Float32", 2],
 		  ["velocity", "Float32", 2],

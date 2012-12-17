@@ -9,11 +9,10 @@ en.Player = function(options){
 		xp: 0,
 		kills: 0,
 		deaths: 0,
-		unlocked_hulls: [
-			0
-		],
-		unlocked_weapons: [
-			0
+		hull: 0,
+		unlocked_items: [
+			{id:1},
+			{id:0}
 		],
 	}, options);
 	
@@ -36,6 +35,8 @@ en.Player.prototype = {
 			kills: this.kills,
 			deaths: this.deaths,
 			
+			unlocked_items: this.unlocked_items,
+			
 			mass: this.mass,
 			density: this.density,
 			friction: this.friction,
@@ -50,15 +51,17 @@ en.Player.prototype = {
 			size: this.size,
 			categoryBits: this.categoryBits,
 			maskBits: this.maskBits,
+			weapon_spots: this.weapon_spots,
 		};
 	},
 };
 
 en.struct.extend("stageFullState", "Player", [
-		["id", "Uint8", 1],
+		["id", "Int32", 1],
 		["type", "String"],
 		["name", "String"],
 		["material", "String"],
+		["color", "Int32", 1],
 		
 		["username", "String"],
 		["level", "Int32", 1],
@@ -67,8 +70,10 @@ en.struct.extend("stageFullState", "Player", [
 		["kills", "Int32", 1],
 		["deaths", "Int32", 1],
 		
-		["color", "Int32", 1],
-		
+		["unlocked_items", "Array", [
+			["id", "Uint8", 1],
+		]],
+
 		["mass", "Float32", 1],
 		["density", "Float32", 1],
 		["friction", "Float32", 1],
@@ -83,10 +88,38 @@ en.struct.extend("stageFullState", "Player", [
 		["size", "Float32", 1],
 		["categoryBits", "Int32", 1],
 		["maskBits", "Int32", 1],
+		
+		["weapon_spots", "Struct", [
+			["primary", "Struct", [
+				["weapon", "Int32", 1],
+				["spots", "Array", [
+					["angle", "Float32", 1],
+					["x", "Float32", 1],
+					["y", "Float32", 1],
+				]],
+			]],
+			["secondary", "Struct", [
+				["weapon", "Int32", 1],
+				["spots", "Array", [
+					["angle", "Float32", 1],
+					["x", "Float32", 1],
+					["y", "Float32", 1],
+				]],
+			]],
+			["special", "Struct", [
+				["weapon", "Int32", 1],
+				["spots", "Array", [
+					["angle", "Float32", 1],
+					["x", "Float32", 1],
+					["y", "Float32", 1],
+				]],
+			]]
+		]],
+		
 ]);
 
 en.struct.extend("stageState", "Player", [
-	  ["id", "Uint8", 1],
+	  ["id", "Int32", 1],
 	  ["health", "Int32", 1],
 	  ["shields", "Int32", 1],
 	  ["boostTimeleft", "Int32", 1],

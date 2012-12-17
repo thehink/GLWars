@@ -49,19 +49,22 @@ client.network.streamListeners[en.metas.state] = function(stream){
 		var data = en.readBufferToData(buffer);
 		
 		switch(data._sid){
-			case en.structID.stageFullStateSpaceship:
+			case en.structID.stageFullStatePlayer:
 				client.player.setData(data);
 				client.player.deployMenu();
 				client.network.connected = true;
+			break;
+			case en.structID.stageState:
+				client.Stage.setState(data);
+			break;
+			case en.structID.stageRemoved:
+				client.Stage.setRemoveObjects(data);
 			break;
 			case en.structID.stageFullState:
 				client.Stage.setFullState(data);
 			break;
 			case en.structID.serverDeployPlayer:
 				client.player.onDeploy(data.id);
-			break;
-			case en.structID.stageState:
-				client.Stage.setState(data);
 			break;
 			case en.structID.recPing:
 				client.network.recievePing(data);
@@ -92,7 +95,7 @@ client.network.sendClientData = function(data){
 
 client.network.onFrame = function(){
 		var now = Date.now();
-		if(now - this.lastPing > 2000){
+		if(now - this.lastPing > 10000){
 			this.ping();
 			this.lastPing = now;
 		}

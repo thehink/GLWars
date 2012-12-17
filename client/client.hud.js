@@ -1,8 +1,10 @@
 client.hud = {};
 
-client.hud.progbar = function(id){
+client.hud.progbar = function(id, width){
 	this.id = '#'+id;
 	this.value = 0;
+	$(this.id).width(width || 200);
+	
 };
 
 client.hud.progbar.prototype = {
@@ -25,9 +27,40 @@ client.hud.hide = function(){
 	$("#hud").hide();
 };
 
-client.hud.healthBar = new client.hud.progbar("health-bar");
-client.hud.shieldBar = new client.hud.progbar("shield-bar");
-client.hud.energyBar = new client.hud.progbar("energy-bar");
+client.hud.init = function(){
+	client.hud.healthBar = new client.hud.progbar("health-bar", 300);
+	client.hud.shieldBar = new client.hud.progbar("shield-bar");
+	client.hud.energyBar = new client.hud.progbar("energy-bar");
+	client.hud.levelBar = new client.hud.progbar("level-bar", 300);
+	
+	client.hud.deployment.init();
+};
+
+client.hud.blog = {
+	
+	show: function(){
+		$("#battle-log").show();
+	},
+	
+	hide: function(){
+		$("#battle-log").hide();
+	},
+	
+	append_kill: function(player1, player2, type){
+		
+		var color1 = new THREE.Color(player1.color).getHexString(),
+			color2 = new THREE.Color(player2.color).getHexString();
+		
+		var html = '<li>';
+			html += '<span class="player" style="color:#'+color1+'">' + player1.username + '</span> <span class="killed">destroyed</span> ';
+			html += '<span class="player" style="color:#'+color2+'"> ' + player2.username + '</span>';
+			html += '</li>';
+			
+		$("#battle-log > ul").append(html);
+		$("#battle-log").animate({ scrollTop: $("#battle-log > ul").height() }, 200);
+		
+	},
+}
 
 
 client.hud.stats = {
@@ -136,13 +169,40 @@ client.hud.deployment = {
 		
 		//var material = en.resources.get("material", cdata.material);
 		
-		var material = this.tempMaterials[cdata.material];
-		
-		var geometry = new THREE.PlaneGeometry(cdata.size*en.scale*2, cdata.size*en.scale*2);
-		
-		this.mesh_hull = new THREE.Mesh(geometry, material);
-		
+		var ship_material = this.tempMaterials[cdata.material],
+			ship_geometry = new THREE.PlaneGeometry(cdata.size*en.scale*2, cdata.size*en.scale*2);
+			
+		this.mesh_hull = new THREE.Mesh(ship_geometry, ship_material);
 		this.spaceship.add(this.mesh_hull);
+		//this.render_weapons();
+	},
+	
+	render_weapons: function(){
+		var cdata = client.player.data;
+		for(var i in cdata.weapon_spots){
+			var spots = cdata.weapon_spots[i].spots;
+			var weapon = en.getRes(cdata[i]);
+			
+			if(weapon){
+				if(this['mesh_weapon_'+i])
+					this.spaceship.remove(this['mesh_weapon_'+i]);
+					
+				this['mesh_weapon_'+i] = new THREE.Object3D();
+				for(var j in spots){
+					var weapon_material = this.tempMaterials[weapon.material],
+						weapon_geometry = new THREE.PlaneGeometry(cdata.size*en.scale, cdata.size*en.scale),
+						weapon_mesh = new THREE.Mesh(weapon_geometry, weapon_material),
+						spot = spots[j];
+						
+					weapon_mesh.rotation.z = -spot.angle;
+					weapon_mesh.position.x = spot.y * 40;
+					weapon_mesh.position.y = spot.x * 40;
+						
+					this['mesh_weapon_'+i].add(weapon_mesh);
+				}
+				this.spaceship.add(this['mesh_weapon_'+i]);
+			}
+		}
 	},
 
 	show: function(){
@@ -154,8 +214,6 @@ client.hud.deployment = {
 	setTab: function(tab){
 		$("#deploy-menu > ul > li.active").removeClass("active");
 		$("#deploy-menu > ul > li").eq(tab).addClass("active");
-		
-		return false; //return, not done below yet!
 		
 		switch(tab){
 			case 0:
@@ -179,11 +237,9 @@ client.hud.deployment = {
 		var selected = 0;
 		var cdata = client.player.data;
 		
-		var c = -1;
-		
 		for(var i in itemList){
-			c++;
-			var res = en.getRes(itemList[i]);
+			var c = itemList[i];
+			var res = en.getRes(c);
 			
 			if(clss && res.class != clss)
 				continue;
@@ -192,30 +248,19 @@ client.hud.deployment = {
 			var imgsrc = material.map.image.src;
 	
 			var status = "";
-	
-			if(clss == "primary" || clss == "secondary" || clss == "special"){
-				if(cdata[clss] == c){
-					status = "selected";
-				}else if(cdata.weapons_unlocked.indexOf(c) > -1){
-					status = "available";
-				}else if(cdata.level >= res.level){
-					status = "buyable";
-				}else{
-					status = "locked";
-				}
+
+			if(cdata[clss] == c){
+				status = "selected";
+			}else if(cdata.hull == c){
+				status = "selected";
+			}else if(cdata.unlocked_items.indexOf(c) > -1){
+				status = "available";
+			}else if(cdata.level >= res.level){
+				status = "buyable";
 			}else{
-				if(cdata.hull == c){
-					status = "selected";
-				}else if(cdata.hulls_unlocked.indexOf(c) > -1){
-					status = "available";
-				}else if(cdata.level >= res.level){
-					status = "buyable";
-				}else{
-					status = "locked";
-				}
+				status = "locked";
 			}
-	
-	
+
 			var htmlc = '<li class="' + status + '">';
 			
 			htmlc += '<img src="'+imgsrc+'" />';
@@ -259,13 +304,15 @@ client.hud.deployment = {
 	
 	color_changed: function(){
 		this.mesh_hull.material.color.setHex(client.player.data.color);
-		this.render();
+		this.renderer.render(this.scene, this.camera);
+		//this.render();
 	},
 	
 	render: function(){
 		var cdata = client.player.data;
 		this.mesh_hull.material = this.tempMaterials[cdata.material];
 		this.mesh_hull.material.color.setHex(cdata.color);
+		this.render_weapons();
 		
 		this.renderer.render(this.scene, this.camera);
 	},

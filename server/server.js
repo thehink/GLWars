@@ -44,6 +44,7 @@ var BinaryServer = require(modulesPath+'binaryjs').BinaryServer,
 	 if(now - server.lastFrame > 50){
 		server.network.onFrame();
 		server.lastFrame = now;
+		server.bots.update();
 	}
 	 
 	 if(server.isRunning)

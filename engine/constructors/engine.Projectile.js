@@ -22,6 +22,7 @@ en.Projectile = function(options){
 		
 		damage: 2,
 		
+		//EXPLOSION NOT IMPLENTED YET:
 		explosion: {
 			explode_range_limit: true,
 			constant_damage: false, 		// constant or dynamic damage depending on the length to the center of the explosion.
@@ -53,7 +54,6 @@ en.Projectile = function(options){
 };
 
 en.Projectile.prototype = {
-	
     init: function(){		
 		var velX = this.speed * Math.cos(this.rotation),
 			velY = this.speed * Math.sin(this.rotation);
@@ -94,7 +94,7 @@ en.Projectile.prototype = {
 		
 		var body = this.stage.physics_world.CreateBody(body_def);
 		
-		body.SetUserData (this);
+		body.SetUserData(this);
 		body.CreateFixture(fix_def);
 		body.SetLinearDamping(this.linear_damping);
 		body.SetAngularDamping(this.angular_damping);
@@ -114,7 +114,7 @@ en.Projectile.prototype = {
 		
 		
 		if(fixB && typeof fixB.damage == "function")
-			fixB.damage(this, this.proj_type, this.damage);
+			fixB.damage(this.owner, this.proj_type, this.damage);
 		
 		this.destroy_queue = true;
 	},

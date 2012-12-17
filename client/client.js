@@ -20,19 +20,15 @@ var client = {
 };
 
 client.init = function(){
-	client.hud.deployment.init();
+	client.hud.init();
 
 	//client.hud.stats.show();
-	
-	//client.hud.deployment.show();
-	
+
 
 	client.eventsInit();
 	client.stage.init();
 	client.network.init();
 
-
-	client.setLogin();
 	
 
 	var stage = this.Stage = new en.Stage({
@@ -40,8 +36,12 @@ client.init = function(){
 	});
 
 	stage.bind("objectInsert", client.addPlayer);
+	stage.bind("kill", client.player_killed);
 
+	//client.hud.deployment.show();
 	//return false;
+	
+	client.setLogin();
 
 	/*
 	for(var i = 0; i < 20; ++i){
@@ -80,6 +80,13 @@ client.addPlayer = function(player){
 			client.players.push(player);
 		}
 	}
+};
+
+client.player_killed = function(data){
+	var player1 = client.Stage.objects.get(data.by);
+	var player2 = client.Stage.objects.get(data.id);
+	
+	client.hud.blog.append_kill(player1, player2, data.type);
 };
 
 client.setPlayers = function(data){
@@ -123,6 +130,9 @@ client.keyListeners = [
 	en.utils.vars.KEY.X,
 	en.utils.vars.KEY.SHIFT,
 	en.utils.vars.KEY.CAPS,
+	en.utils.vars.KEY.NUM1,
+	en.utils.vars.KEY.NUM2,
+	en.utils.vars.KEY.NUM3,
 ];
 
 client.keyAboveChange = function(){

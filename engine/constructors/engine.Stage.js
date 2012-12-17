@@ -13,6 +13,7 @@ en.Stage = function(options, state){
 	
 	this.deltaObjects = [];
 	this.deltaRemove = [];
+	this.deltaKilled = [];
 	
 	this.lastUpdate = Date.now();
 	this.deltaTime = 0;
@@ -23,6 +24,7 @@ en.Stage = function(options, state){
 	this.accumulator = 0;
 	this.dt = 1000/60;
 	this.t = 0;
+	this.ticks = 0;
 	
 	en.Base.apply(this, [options]);
 
@@ -105,10 +107,19 @@ en.Stage.prototype = {
 		object.id = object.id || 1000+this.count;
 		this.count++;
 		
+		var oldObj = this.objects.get(object.id);
+		
+		if(oldObj){
+			console.log("overwriting existing object", object.id);
+			oldObj.destroy();
+		}
+		
+		object.destroy_queue = false;
+		
 		if(object.netSynch)
 			this.deltaObjects.push(object.id);
 		
-		console.log("Inserting object of type: ", object.type);
+		console.log("Inserting object of type: ", object.type, object.id);
 		
 		this.objects.add(object.type, object.id, object);
 		object.stage = this;
@@ -118,7 +129,10 @@ en.Stage.prototype = {
 	
 	removeObject: function(object, method){
 		if(object.netSynch)
-			this.deltaRemove.push({id: object.id, method: method || 0});
+			this.deltaRemove.push({
+				id: object.id,
+				method: method || 0
+			});
 		
 		this.physics_world.DestroyBody(object.body);
 		this.objects.remove(object.id);
@@ -152,26 +166,6 @@ en.Stage.prototype = {
 		//en.call("stage/begin/update", mult);
 		
 		
-		
-		
-/*
-		 var newTime = Date.now();
-         var frameTime = newTime - this.currentTime;
-         if ( frameTime > 250 )
-              frameTime = 250;	  // note: max frame time to avoid spiral of death
-         this.currentTime = newTime;
-
-         this.accumulator += frameTime;
-
-         while ( this.accumulator >= this.dt )
-         {
-			  this.physics_world.Step(1/60, 8, 8);
-              this.t += this.dt;
-              this.accumulator -= this.dt;
-         }
-
-        var alpha = this.accumulator / this.dt;
-		*/
 	
 		
 		
@@ -182,9 +176,10 @@ en.Stage.prototype = {
 		this.deltaTime = dateNow-this.lastUpdate;
 		this.lastUpdate = dateNow;
 		
-		this.t += this.deltaTime;
+		//this.t += this.deltaTime;
 
 		this.frameTime += this.deltaTime;
+		
 		
 		//-------------------------------
 		var group = this.objects.index;
@@ -202,12 +197,30 @@ en.Stage.prototype = {
 			}
 		}
 		//---------------------------------
-		
+		/*
 		while(this.frameTime > 0){
 			var dTime = Math.min(this.deltaTime, timeStep);
 			this.physics_world.Step(dTime/1000, 8, 8);
 			this.frameTime -= dTime;
-		}
+		}*/
+		
+		 var newTime = Date.now();
+         var frameTime = newTime - this.currentTime;
+         if ( frameTime > 1000 )
+              frameTime = 1000;	  // note: max frame time to avoid spiral of death
+         this.currentTime = newTime;
+
+         this.accumulator += frameTime;
+
+         while ( this.accumulator >= this.dt )
+         {
+			  this.physics_world.Step(1/60, 8, 8);
+              this.t += this.dt;
+			  this.ticks++;
+              this.accumulator -= this.dt;
+         }
+
+        var alpha = this.accumulator / this.dt;
 		
 		this.physics_world.ClearForces();
 
@@ -242,7 +255,8 @@ en.Stage.prototype = {
 	},
 	
 	setFullState: function(state){
-		this.t = state.time;
+		//this.t = state.time;
+		this.ticks = state.time;
 		
 		for(var i in state){
 			if(typeof en.getClass(i) == "function"){
@@ -261,6 +275,8 @@ en.Stage.prototype = {
 		
 		//console.log(this.serverDT);
 
+		this.ticks = state.time + (en.latancy+0.5)|0;
+
 		//this.t = state.time - deltaT;
 
 		for(var i in state){
@@ -276,10 +292,17 @@ en.Stage.prototype = {
 			}
 		}
 		
-		
-		if(state.remove){
-			for(var i = 0; i < state.remove.length; ++i){
-				var dr = state.remove[i];
+		if(state.killed){
+			for(var i = 0; i < state.killed.length; ++i){
+				this.call("kill", state.killed[i]);
+			}
+		}
+	},
+	
+	setRemoveObjects: function(state){
+		if(state.removed){
+			for(var i = 0; i < state.removed.length; ++i){
+				var dr = state.removed[i];
 				var obj = this.objects.get(dr.id);
 				if(obj){
 					obj.destroy_queue = true;
@@ -290,10 +313,20 @@ en.Stage.prototype = {
 		}
 	},
 	
+	getRemovedState: function(){
+		var state = {
+			removed: this.deltaRemove,
+		};
+		
+		this.deltaRemove = [];
+		
+		return state;
+	},
+	
 	getState: function(){
 		var state = {
-			time: this.t | 0,
-			remove: this.deltaRemove,
+			time: this.ticks | 0,
+			killed: this.deltaKilled,
 		};
 		
 		var indexes = this.objects.index;//this.objects.getGroup("awake");
@@ -306,8 +339,8 @@ en.Stage.prototype = {
 				state[obj.type].push(obj.getState());
 			}
 		}
-		
-		this.deltaRemove = [];
+
+		this.deltaKilled = [];
 		
 		return state;
 	},
@@ -315,7 +348,7 @@ en.Stage.prototype = {
 	stateBuild: function(group, reset){
 		var state = {
 			name: "test",
-			time: this.t | 0,
+			time: this.ticks | 0,
 			reset: reset,
 		};
 		

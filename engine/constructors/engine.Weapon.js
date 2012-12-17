@@ -1,14 +1,18 @@
 en.Weapon = function(options){
 	options = en.utils.defaultOpts({
-		name: "default",
+		name: "PlasmaGun",
+		material: "weapon_plasmagun",
 		type: "Weapon",
-		class: "medium",
-		firerate: 1000,
+		class: "primary",
+		price: 500,
+		level: 0,
+		firerate: 250,
 		recoil: 3,
+		speed: 10,
+		energy: 2,
+		spread_angle: 0,
 		ammo: -1,
 		clip: -1,
-		energy: 2,
-		energyMax: 100,
 		projectile: "deafult",
 		lastfire: 0,
 	}, options);
@@ -17,12 +21,12 @@ en.Weapon = function(options){
 };
 
 en.Weapon.prototype = {
-	fire: function(owner, position, angle){
+	fire: function(owner, fireInfo){
 		var opt = en.resources.get("projectile", this.projectile);
 		
 		switch(opt.proj_type){
 			case en.utils.vars.projectile_types.BULLET:
-				this.fire_bullet(owner, position, angle, opt);
+				this.fire_bullet(owner, fireInfo, opt);
 			break;
 			case en.utils.vars.projectile_types.ROCKET:
 				this.fire_rocket(owner, position, angle, opt);
@@ -36,11 +40,21 @@ en.Weapon.prototype = {
 		}
 	},
 	
-	fire_bullet: function(owner, position, angle, opt){
+	fire_bullet: function(owner, fireInfo, opt){
+		/*
+		if(owner.boostLock || owner.boostTimeleft <= 0)
+			return false;
+		*/
+		
 		if((en.lastFrameTime - this.lastfire) > this.firerate){
-			opt.position = position.getRotation(angle-Math.PI/2, 0, 2.5);
+			//owner.boostTimeleft -= this.energy;
+			
+			var position = owner.body.GetPosition(),
+				angle = owner.body.GetAngle();
+			
+			opt.position = position.getRotation(angle-Math.PI/2, fireInfo.x, fireInfo.y);
 			opt.velocity = owner.body.GetLinearVelocity();
-			opt.rotation = angle;
+			opt.rotation = angle + fireInfo.angle;
 			opt.owner = owner;
 			
 			owner.stage.insertObject(new (en.getClass("Projectile"))(opt));

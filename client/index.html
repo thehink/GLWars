@@ -10,8 +10,8 @@
 			<script type="text/javascript" src="lib/webaudio.js"></script>
 			<script type="text/javascript" src="lib/Stats.js"></script>
             <script type="text/javascript" src="lib/colorpicker.js"></script>
+            <script type="text/javascript" src="lib/binary.js"></script>
 			<script type="text/javascript" src="client.build.js"></script>
-            <script src="http://cdn.binaryjs.com/0/binary.js"></script>
 			<script id="fragment_shader_pass_1" type="x-shader/x-fragment">
     varying vec2 vUv;
     uniform sampler2D tDiffuse;
@@ -528,7 +528,8 @@
 
 
 <div id="battle-log">
-<ul></ul>
+<ul>
+</ul>
 </div>
 
 <div id="weapons">
@@ -548,6 +549,12 @@
     		  <div id="energy-bar-completed" class="completed-bar"></div>
               <div id="energy-bar-status" class="status-bar-text"><span>Energy </span> <span id="energy-status" class="bar-value">100</span>%</div>
     </div>
+    <div id="level-bar" class="v-bar">
+    		  <div id="level-bar-completed" class="completed-bar"></div>
+              <div id="level-bar-status" class="status-bar-text"><span>XP: </span> <span id="level-status" class="bar-value">0/1000</span></div>
+    </div>
+    <div id="level">0</div>
+    <div id="xp_add">+ 50xp</div>
   </div>
   
   <div id="vitals-bars">
@@ -564,7 +571,7 @@
 </section>
 
 <div class="colorpicker" style="display:none">
-                <canvas id="picker" var="1" width="300" height="300"></canvas>
+                <canvas id="picker" var="4" width="300" height="300"></canvas>
 
                 <div class="controls">
                     <div><label>R</label> <input type="text" id="rVal" /></div>
